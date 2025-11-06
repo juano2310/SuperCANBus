@@ -1,4 +1,3 @@
-````markdown
 # SuperCAN Library
 
 An enhanced Arduino library for CAN bus communication with built-in MQTT-like publish/subscribe protocol.
@@ -238,5 +237,3 @@ This library is [licensed](LICENSE) under the [MIT Licence](http://en.wikipedia.
 Based on [arduino-CAN](https://github.com/sandeepmistry/arduino-CAN) by Sandeep Mistry.
 
 MQTT protocol extensions by Juan Pablo Risso.
-
-````
