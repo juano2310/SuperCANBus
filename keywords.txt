@@ -1,0 +1,109 @@
+#######################################
+# Syntax Coloring Map For CAN
+#######################################
+
+#######################################
+# Datatypes (KEYWORD1)
+#######################################
+
+CAN	KEYWORD1
+CANMqttBroker	KEYWORD1
+CANMqttClient	KEYWORD1
+CANMqttBase	KEYWORD1
+
+#######################################
+# Methods and Functions (KEYWORD2)
+#######################################
+
+begin	KEYWORD2
+end	KEYWORD2
+
+beginPacket	KEYWORD2
+beginExtendedPacket	KEYWORD2
+endPacket	KEYWORD2
+
+parsePacket	KEYWORD2
+packetId	KEYWORD2
+packetExtended	KEYWORD2
+packetRtr	KEYWORD2
+packetDlc	KEYWORD2
+
+write	KEYWORD2
+
+available	KEYWORD2
+read	KEYWORD2
+peek	KEYWORD2
+flush	KEYWORD2
+
+onReceive	KEYWORD2
+filter	KEYWORD2
+filterExtended	KEYWORD2
+loopback	KEYWORD2
+sleep	KEYWORD2
+wakeup	KEYWORD2
+
+setPins	KEYWORD2
+setSPIFrequency	KEYWORD2
+setClockFrequency	KEYWORD2
+dumpRegisters	KEYWORD2
+
+# MQTT Protocol Methods
+loop	KEYWORD2
+handleMessage	KEYWORD2
+subscribe	KEYWORD2
+unsubscribe	KEYWORD2
+publish	KEYWORD2
+sendDirectMessage	KEYWORD2
+ping	KEYWORD2
+connect	KEYWORD2
+isConnected	KEYWORD2
+getClientId	KEYWORD2
+onMessage	KEYWORD2
+onDirectMessage	KEYWORD2
+onConnect	KEYWORD2
+onDisconnect	KEYWORD2
+onClientConnect	KEYWORD2
+onClientDisconnect	KEYWORD2
+onPublish	KEYWORD2
+sendToClient	KEYWORD2
+broadcastMessage	KEYWORD2
+getClientCount	KEYWORD2
+getSubscriptionCount	KEYWORD2
+getSubscribers	KEYWORD2
+isSubscribed	KEYWORD2
+hashTopic	KEYWORD2
+registerTopic	KEYWORD2
+getTopicName	KEYWORD2
+
+# Client ID Management with Serial Numbers
+registerClient	KEYWORD2
+unregisterClient	KEYWORD2
+unregisterClientBySerial	KEYWORD2
+getClientIdBySerial	KEYWORD2
+getSerialByClientId	KEYWORD2
+updateClientSerial	KEYWORD2
+getRegisteredClientCount	KEYWORD2
+listRegisteredClients	KEYWORD2
+getSerialNumber	KEYWORD2
+
+# Persistent Storage
+saveMappingsToStorage	KEYWORD2
+loadMappingsFromStorage	KEYWORD2
+clearStoredMappings	KEYWORD2
+
+#######################################
+# Constants (LITERAL1)
+#######################################
+
+CAN_MQTT_SUBSCRIBE	LITERAL1
+CAN_MQTT_UNSUBSCRIBE	LITERAL1
+CAN_MQTT_PUBLISH	LITERAL1
+CAN_MQTT_TOPIC_DATA	LITERAL1
+CAN_MQTT_DIRECT_MSG	LITERAL1
+CAN_MQTT_ID_REQUEST	LITERAL1
+CAN_MQTT_ID_RESPONSE	LITERAL1
+CAN_MQTT_PING	LITERAL1
+CAN_MQTT_PONG	LITERAL1
+CAN_MQTT_ACK	LITERAL1
+CAN_MQTT_BROKER_ID	LITERAL1
+CAN_MQTT_UNASSIGNED_ID	LITERAL1
