@@ -1,4 +1,4 @@
-# SuperCAN Library
+# Super CAN Library
 
 An enhanced Arduino library for CAN bus communication with built-in MQTT-like publish/subscribe protocol.
 
