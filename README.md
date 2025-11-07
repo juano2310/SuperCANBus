@@ -1,4 +1,4 @@
-# Super CAN Library
+# Super CAN - Library
 
 An enhanced Arduino library for CAN bus communication with built-in MQTT-like publish/subscribe protocol.
 
@@ -152,13 +152,13 @@ void loop() {
 See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree/master/examples) for basic CAN usage.
 
 ### MQTT Protocol Examples
-- **CANMqttBroker** - MQTT broker with serial interface
-- **CANMqttClient** - Interactive MQTT client
-- **CANMqttBrokerWithSerial** - Broker with serial number management and flash storage
-- **CANMqttClientWithSerial** - Client with persistent ID using serial number
-- **CANMqttStorageTest** - Flash storage testing and verification
-- **CANMqttComplete** - Combined broker/client example (compile-time selectable)
-- **CANMqttSensorNode** - Real-world sensor node with periodic publishing
+- **Broker** - MQTT broker with serial interface
+- **Client** - Interactive MQTT client
+- **BrokerWithSerial** - Broker with serial number management and flash storage
+- **ClientWithSerial** - Client with persistent ID using serial number
+- **StorageTest** - Flash storage testing and verification
+- **Complete** - Combined broker/client example (compile-time selectable)
+- **SensorNode** - Real-world sensor node with periodic publishing
 
 ## MQTT Protocol Features
 

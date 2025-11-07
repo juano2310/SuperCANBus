@@ -42,8 +42,8 @@ Created comprehensive guides:
 - **FLASH_STORAGE.md** - Complete storage reference guide
 
 ### 5. Examples
-- **CANMqttBrokerWithSerial.ino** - Updated with storage status display
-- **CANMqttStorageTest.ino** - New dedicated storage testing example
+- **BrokerWithSerial.ino** - Updated with storage status display
+- **StorageTest.ino** - New dedicated storage testing example
 
 ### 6. Keywords
 Updated `keywords.txt` with:
@@ -91,7 +91,7 @@ broker.clearStoredMappings();
 
 ## Testing
 
-Use the `CANMqttStorageTest` example:
+Use the `StorageTest` example:
 1. Upload and register test clients
 2. Power cycle the device
 3. Verify clients are still registered

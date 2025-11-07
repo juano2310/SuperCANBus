@@ -539,8 +539,8 @@ Equipment with serial plates. The CAN network maps serial numbers to IDs for ass
 ## Complete Example
 
 See the following examples for full implementations:
-- `CANMqttBrokerWithSerial.ino` - Broker with client management
-- `CANMqttClientWithSerial.ino` - Client with serial number
+- `BrokerWithSerial.ino` - Broker with client management
+- `ClientWithSerial.ino` - Client with serial number
 
 ---
 
