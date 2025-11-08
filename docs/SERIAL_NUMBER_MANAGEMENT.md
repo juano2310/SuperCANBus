@@ -107,12 +107,12 @@ if (broker.unregisterClientBySerial("ESP32_ABC123")) {
 ```cpp
 uint8_t getClientIdBySerial(const String& serialNumber)
 ```
-Get client ID for a given serial number. Returns `CAN_MQTT_UNASSIGNED_ID` (0xFF) if not found.
+Get client ID for a given serial number. Returns `CAN_PS_UNASSIGNED_ID` (0xFF) if not found.
 
 **Example:**
 ```cpp
 uint8_t id = broker.getClientIdBySerial("ESP32_ABC123");
-if (id != CAN_MQTT_UNASSIGNED_ID) {
+if (id != CAN_PS_UNASSIGNED_ID) {
   Serial.print("Client ID: 0x");
   Serial.println(id, HEX);
 }
@@ -285,7 +285,7 @@ Serial.println(serial);
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -326,7 +326,7 @@ void loop() {
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 String serialNumber;
 
 void setup() {
@@ -363,7 +363,7 @@ void loop() {
 #include <SUPER_CAN.h>
 #include <WiFi.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 String serialNumber;
 
 void setup() {
@@ -400,17 +400,17 @@ void loop() {
 ```cpp
 #define MAX_CLIENT_MAPPINGS 50   // Maximum registered clients
 #define MAX_SERIAL_LENGTH 32     // Maximum serial number length
-#define STORAGE_NAMESPACE "canmqtt"  // ESP32 Preferences namespace
+#define STORAGE_NAMESPACE "CANPubSub"  // ESP32 Preferences namespace
 #define EEPROM_SIZE 2048         // EEPROM size for Arduino
 ```
 
-Modify these in `CANMqtt.h` to change storage parameters.
+Modify these in `CANPubSub.h` to change storage parameters.
 
 ## Storage Implementation
 
 ### ESP32 (Preferences/NVS)
 The ESP32 version uses the **Preferences library** which stores data in Non-Volatile Storage (NVS):
-- Namespace: `"canmqtt"`
+- Namespace: `"CANPubSub"`
 - Survives: Power loss, resets, firmware updates (unless flash is erased)
 - Wear leveling: Built-in by ESP32 NVS
 - Max writes: ~100,000 cycles per sector
@@ -516,7 +516,7 @@ Equipment with serial plates. The CAN network maps serial numbers to IDs for ass
 - Check if storage is working: `broker.loadMappingsFromStorage()`
 
 ### Mapping table full (50 clients)
-- Increase `MAX_CLIENT_MAPPINGS` in `CANMqtt.h`
+- Increase `MAX_CLIENT_MAPPINGS` in `CANPubSub.h`
 - Remember to increase `EEPROM_SIZE` accordingly
 - Unregister inactive clients
 

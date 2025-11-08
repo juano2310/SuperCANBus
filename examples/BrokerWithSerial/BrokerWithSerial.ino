@@ -39,7 +39,7 @@
 #include <SUPER_CAN.h>
 
 // Create broker instance
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -340,7 +340,7 @@ void showStats() {
 
 // Publish a message from the broker
 void publishMessage(const String& topic, const String& message) {
-  uint16_t topicHash = CANMqttBase::hashTopic(topic);
+  uint16_t topicHash = CANPubSubBase::hashTopic(topic);
   broker.registerTopic(topic);
   broker.broadcastMessage(topicHash, message);
   
@@ -376,7 +376,7 @@ void unregisterClient(const String& param) {
 void findClient(const String& serial) {
   uint8_t clientId = broker.getClientIdBySerial(serial);
   
-  if (clientId != CAN_MQTT_UNASSIGNED_ID) {
+  if (clientId != CAN_PS_UNASSIGNED_ID) {
     Serial.print("Client ID for serial '");
     Serial.print(serial);
     Serial.print("': 0x");

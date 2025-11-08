@@ -1,5 +1,5 @@
 /*
-  CAN MQTT Storage Test
+  CAN PubSub Storage Test
   
   This example tests the flash memory storage feature for client mappings.
   It demonstrates how client registrations survive power cycles.
@@ -21,14 +21,14 @@
 
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
   delay(2000);
   
   Serial.println("\n╔═══════════════════════════════════════════════╗");
-  Serial.println("║     CAN MQTT Flash Storage Test              ║");
+  Serial.println("║     CAN PubSub Flash Storage Test             ║");
   Serial.println("╚═══════════════════════════════════════════════╝\n");
   
   // Initialize CAN
@@ -132,7 +132,7 @@ void registerTestClient(const char* serialNumber) {
   
   uint8_t id = broker.registerClient(serialNumber);
   
-  if (id != CAN_MQTT_UNASSIGNED_ID) {
+  if (id != CAN_PS_UNASSIGNED_ID) {
     Serial.print("OK - Assigned ID: 0x");
     if (id < 0x10) Serial.print("0");
     Serial.println(id, HEX);

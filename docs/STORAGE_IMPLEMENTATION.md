@@ -6,7 +6,7 @@ The Super CAN+ library now includes **persistent flash memory storage** for clie
 
 ## Key Changes
 
-### 1. Header File (`CANMqtt.h`)
+### 1. Header File (`CANPubSub.h`)
 - Added platform-specific includes (Preferences for ESP32, EEPROM for Arduino)
 - Changed `ClientMapping` struct to use fixed-size `char` array instead of `String`
 - Added storage configuration constants
@@ -16,12 +16,12 @@ The Super CAN+ library now includes **persistent flash memory storage** for clie
   - `clearStoredMappings()`
 - Added private `initStorage()` helper and Preferences member for ESP32
 
-### 2. Implementation File (`CANMqtt.cpp`)
+### 2. Implementation File (`CANPubSub.cpp`)
 - Modified `begin()` to automatically load mappings from storage
 - Updated all mapping management functions to use `setSerial()`/`getSerial()` methods
 - Added automatic `saveMappingsToStorage()` calls on state changes
 - Implemented platform-specific storage functions:
-  - **ESP32**: Uses Preferences library (NVS) with namespace "canmqtt"
+  - **ESP32**: Uses Preferences library (NVS) with namespace "CANPubSub"
   - **Arduino**: Uses EEPROM with magic number validation
 
 ### 3. Storage Format
@@ -55,7 +55,7 @@ Updated `keywords.txt` with:
 
 ### Automatic (Recommended)
 ```cpp
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 broker.begin();  // Loads from flash automatically
 broker.registerClient("ESP32_001");  // Saves to flash automatically
@@ -126,7 +126,7 @@ Reads never trigger writes (no wear).
 
 ### ESP32 Specific
 - Uses Preferences library
-- Namespace: "canmqtt"
+- Namespace: "CANPubSub"
 - Stores each mapping separately for efficiency
 - Supports ~100,000 writes per sector with wear leveling
 

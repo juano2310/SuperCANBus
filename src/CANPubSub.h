@@ -1,8 +1,8 @@
-// CANMqtt.h - Publish/Subscribe protocol for CAN bus
+// CANPubSub.h - Publish/Subscribe protocol for CAN bus
 // Part of Super CAN+ Library
 
-#ifndef CAN_MQTT_H
-#define CAN_MQTT_H
+#ifndef CAN_PS_H
+#define CAN_PS_H
 
 #include <Arduino.h>
 #include <functional>
@@ -16,19 +16,19 @@
 #endif
 
 // Message types
-#define CAN_MQTT_SUBSCRIBE      0x01
-#define CAN_MQTT_UNSUBSCRIBE    0x02
-#define CAN_MQTT_PUBLISH        0x03
-#define CAN_MQTT_TOPIC_DATA     0x04
-#define CAN_MQTT_DIRECT_MSG     0x05
-#define CAN_MQTT_ID_REQUEST     0xFF
-#define CAN_MQTT_ID_RESPONSE    0xFE
-#define CAN_MQTT_PING           0x06
-#define CAN_MQTT_PONG           0x07
-#define CAN_MQTT_ACK            0x08
+#define CAN_PS_SUBSCRIBE      0x01
+#define CAN_PS_UNSUBSCRIBE    0x02
+#define CAN_PS_PUBLISH        0x03
+#define CAN_PS_TOPIC_DATA     0x04
+#define CAN_PS_DIRECT_MSG     0x05
+#define CAN_PS_ID_REQUEST     0xFF
+#define CAN_PS_ID_RESPONSE    0xFE
+#define CAN_PS_PING           0x06
+#define CAN_PS_PONG           0x07
+#define CAN_PS_ACK            0x08
 
-#define CAN_MQTT_BROKER_ID      0x00
-#define CAN_MQTT_UNASSIGNED_ID  0xFF
+#define CAN_PS_BROKER_ID      0x00
+#define CAN_PS_UNASSIGNED_ID  0xFF
 
 #define MAX_SUBSCRIPTIONS       20
 #define MAX_SUBSCRIBERS_PER_TOPIC 10
@@ -37,9 +37,25 @@
 #define MAX_CLIENT_MAPPINGS     50  // Maximum number of registered clients
 #define MAX_SERIAL_LENGTH       32  // Maximum length for serial numbers
 
+// Extended message support (for messages > 8 bytes)
+#define CAN_FRAME_DATA_SIZE     8   // Standard CAN frame data size
+#define MAX_EXTENDED_MSG_SIZE   128 // Maximum size for extended messages
+#define EXTENDED_MSG_TIMEOUT    1000 // Timeout for multi-frame messages (ms)
+
 // Forward declarations
-class CANMqttBroker;
-class CANMqttClient;
+class CANPubSubBroker;
+class CANPubSubClient;
+
+// Extended message buffer structure
+struct ExtendedMessageBuffer {
+  uint8_t msgType;
+  uint8_t senderId;
+  uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
+  uint16_t receivedSize;
+  uint16_t totalSize;
+  unsigned long lastFrameTime;
+  bool active;
+};
 
 // Callback types
 typedef void (*MessageCallback)(uint16_t topicHash, const String& topic, const String& message);
@@ -77,15 +93,25 @@ struct ClientMapping {
   }
 };
 
+// Client subscription storage structure
+// Stores which topics each client is subscribed to (persists across power cycles)
+#define MAX_STORED_SUBS_PER_CLIENT 10
+struct ClientSubscriptions {
+  uint8_t clientId;
+  uint16_t topics[MAX_STORED_SUBS_PER_CLIENT];
+  uint8_t topicCount;
+};
+
 // Storage configuration
-#define STORAGE_NAMESPACE "canmqtt"
+#define STORAGE_NAMESPACE "CANPubSub"
 #define STORAGE_MAGIC 0xCABE     // Magic number to verify valid data
-#define EEPROM_SIZE 2048         // EEPROM size for non-ESP32 platforms
+#define STORAGE_SUB_MAGIC 0xCAFF // Magic number for subscription data
+#define EEPROM_SIZE 4096         // EEPROM size for non-ESP32 platforms (increased for subscriptions)
 
 // Base pub/sub class
-class CANMqttBase {
+class CANPubSubBase {
 public:
-  CANMqttBase(CANControllerClass& can);
+  CANPubSubBase(CANControllerClass& can);
   
   // Topic hashing
   static uint16_t hashTopic(const String& topic);
@@ -98,12 +124,19 @@ protected:
   CANControllerClass* _can;
   TopicMapping _topicMappings[MAX_SUBSCRIPTIONS];
   uint8_t _topicMappingCount;
+  
+  // Extended message support
+  bool sendExtendedMessage(uint8_t msgType, const uint8_t* data, size_t length);
+  void processExtendedFrame(int packetSize);
+  virtual void onExtendedMessageComplete(uint8_t msgType, uint8_t senderId, const uint8_t* data, size_t length) = 0;
+  
+  ExtendedMessageBuffer _extBuffer;
 };
 
 // Pub/Sub Broker class
-class CANMqttBroker : public CANMqttBase {
+class CANPubSubBroker : public CANPubSubBase {
 public:
-  CANMqttBroker(CANControllerClass& can);
+  CANPubSubBroker(CANControllerClass& can);
   
   // Initialization
   bool begin();
@@ -142,10 +175,18 @@ public:
   uint8_t getRegisteredClientCount();
   void listRegisteredClients(std::function<void(uint8_t id, const String& serial, bool active)> callback);
   
+  // Extended message handling override
+  void onExtendedMessageComplete(uint8_t msgType, uint8_t senderId, const uint8_t* data, size_t length) override;
+  
   // Persistent storage management
   bool loadMappingsFromStorage();
   bool saveMappingsToStorage();
   bool clearStoredMappings();
+  
+  // Subscription persistence
+  bool loadSubscriptionsFromStorage();
+  bool saveSubscriptionsToStorage();
+  bool clearStoredSubscriptions();
   
 private:
   // Subscription management
@@ -181,6 +222,15 @@ private:
   ClientMapping _clientMappings[MAX_CLIENT_MAPPINGS];
   uint8_t _mappingCount;
   
+  // Client subscription persistence
+  ClientSubscriptions _storedSubscriptions[MAX_CLIENT_MAPPINGS];
+  uint8_t _storedSubCount;
+  
+  // Subscription storage helpers
+  void storeClientSubscriptions(uint8_t clientId);
+  void restoreClientSubscriptions(uint8_t clientId);
+  int findStoredSubscription(uint8_t clientId);
+  
   // Storage helpers
   #ifdef ESP32
   Preferences _preferences;
@@ -195,9 +245,9 @@ private:
 };
 
 // Pub/Sub Client class
-class CANMqttClient : public CANMqttBase {
+class CANPubSubClient : public CANPubSubBase {
 public:
-  CANMqttClient(CANControllerClass& can);
+  CANPubSubClient(CANControllerClass& can);
   
   // Initialization
   bool begin(unsigned long timeout = 5000);
@@ -233,6 +283,10 @@ public:
   // Topic management
   bool isSubscribed(const String& topic);
   uint8_t getSubscriptionCount();
+  void listSubscribedTopics(std::function<void(uint16_t hash, const String& name)> callback);
+  
+  // Extended message handling override
+  void onExtendedMessageComplete(uint8_t msgType, uint8_t senderId, const uint8_t* data, size_t length) override;
   
 private:
   // ID management
@@ -261,4 +315,4 @@ private:
   void (*_onDisconnect)();
 };
 
-#endif // CAN_MQTT_H
+#endif // CAN_PS_H

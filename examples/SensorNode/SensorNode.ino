@@ -1,5 +1,5 @@
 /*
-  CAN MQTT Sensor Node Example
+  CAN PubSub Sensor Node Example
   
   This example demonstrates a sensor node that publishes data to topics
   and responds to commands from the broker or other nodes.
@@ -28,7 +28,7 @@
 #include <SUPER_CAN.h>
 
 // Create client instance
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 // Configuration
 const int LED_PIN = 13;
@@ -49,7 +49,7 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
   
-  Serial.println("=== CAN MQTT Sensor Node ===");
+  Serial.println("=== CAN PubSub Sensor Node ===");
   Serial.println("Initializing...");
 
   // Initialize CAN bus

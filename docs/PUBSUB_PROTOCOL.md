@@ -136,7 +136,7 @@ This allows topic names to be efficiently transmitted over CAN bus while maintai
 
 ### Broker API
 
-#### CANMqttBroker(CANControllerClass& can)
+#### CANPubSubBroker(CANControllerClass& can)
 Constructor - Creates a broker instance.
 
 #### bool begin()
@@ -165,7 +165,7 @@ Broadcast a message to all subscribers of a topic.
 
 ### Client API
 
-#### CANMqttClient(CANControllerClass& can)
+#### CANPubSubClient(CANControllerClass& can)
 Constructor - Creates a client instance.
 
 #### bool begin(unsigned long timeout = 5000)
@@ -211,7 +211,7 @@ Register callback for connection events.
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -235,7 +235,7 @@ void loop() {
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -272,7 +272,7 @@ void loop() {
   #include <WiFi.h>
 #endif
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -312,33 +312,93 @@ void loop() {
 
 ## Configuration Limits
 
-The following limits are defined and can be modified in `CANMqtt.h`:
+The following limits are defined and can be modified in `CANPubSub.h`:
 
 - `MAX_SUBSCRIPTIONS` - Maximum number of unique topics (default: 20)
 - `MAX_SUBSCRIBERS_PER_TOPIC` - Maximum subscribers per topic (default: 10)
 - `MAX_CLIENT_TOPICS` - Maximum topics a client can subscribe to (default: 10)
+- `MAX_EXTENDED_MSG_SIZE` - Maximum size for extended messages (default: 128 bytes)
+- `EXTENDED_MSG_TIMEOUT` - Timeout for multi-frame messages (default: 1000ms)
+- `CAN_FRAME_DATA_SIZE` - Standard CAN frame data size (default: 8 bytes)
 
 ## Best Practices
 
-1. **Keep messages short**: CAN frames are limited to 8 bytes of data
+1. **Message sizing**: Messages up to 128 bytes are supported via extended frames
+   - Small messages (<8 bytes) use standard frames for efficiency
+   - Larger messages automatically use extended frames
+   - Extended frames add ~5ms latency per 8-byte segment
 2. **Use topic hashing**: The library automatically handles topic hashing
 3. **Handle reconnection**: Clients should monitor connection status and reconnect if needed
 4. **Avoid message storms**: Add delays between rapid message publishing
+   - Especially important for extended messages (multiple frames)
 5. **Use callbacks**: Register callbacks for efficient event handling
 6. **Topic naming**: Use hierarchical naming like "sensors/temperature"
+   - Full topic names are now supported via extended frames
+   - No need to abbreviate topic names anymore
 7. **⚡ Use persistent IDs**: Connect with serial numbers for production deployments
    - Maintains same client ID across reboots
    - Enables predictable message routing
    - Required for stateful applications
    - Use device-unique identifiers (MAC address, chip ID, etc.)
+   - Long serial numbers (>8 bytes) are fully supported via extended frames
+
+## Extended Message Support
+
+The protocol automatically uses **extended CAN frames** when messages exceed 8 bytes. This enables:
+
+### Features
+- **Long serial numbers**: Up to 128 bytes for device registration
+- **Long topic names**: Full topic paths without truncation
+- **Large messages**: Publish messages up to 128 bytes
+- **Multi-frame transmission**: Automatic message fragmentation and reassembly
+
+### How It Works
+
+When a message (serial number, topic name, or payload) exceeds 8 bytes:
+
+1. **Automatic Detection**: Library detects message size and switches to extended mode
+2. **Frame Fragmentation**: Message is split into multiple 8-byte frames
+3. **Extended IDs**: Uses 29-bit CAN IDs to encode: `[msgType][frameSeq][totalFrames]`
+4. **Reassembly**: Receiver automatically reassembles frames into complete message
+5. **Timeout Protection**: Incomplete messages are discarded after 1 second
+
+### Extended ID Format
+
+```
+29-bit Extended CAN ID:
+┌────────────┬────────────┬──────────────┐
+│  MsgType   │  FrameSeq  │ TotalFrames  │
+│  (8 bits)  │  (8 bits)  │  (13 bits)   │
+└────────────┴────────────┴──────────────┘
+```
+
+### Example: Long Serial Number
+
+```cpp
+// Serial number: "ESP32-C3-MAC-AA:BB:CC:DD:EE:FF" (32 bytes)
+client.begin("ESP32-C3-MAC-AA:BB:CC:DD:EE:FF");
+
+// Automatically sends as 4 extended frames:
+// Frame 0: "ESP32-C3" (8 bytes)
+// Frame 1: "-MAC-AA:" (8 bytes)
+// Frame 2: "BB:CC:DD" (8 bytes)
+// Frame 3: ":EE:FF"   (6 bytes)
+```
+
+### Performance
+
+- **Latency**: ~5ms additional delay per frame (inter-frame spacing)
+- **Throughput**: ~1.6 KB/s for extended messages at 500 kbps
+- **Reliability**: Automatic timeout and retry on frame loss
 
 ## Limitations
 
-1. **Message size**: Limited to ~5 bytes per message (after protocol overhead)
+1. **Message size**: Up to 128 bytes per message (with extended frames)
 2. **Topic collisions**: Hash collisions are possible but rare with the 16-bit hash
 3. **No QoS levels**: Messages are best-effort delivery only
 4. **No message persistence**: Messages are not stored by the broker
 5. **Single broker**: The protocol supports one broker per CAN bus
+6. **Frame ordering**: Extended messages must arrive in sequence
 
 ## Troubleshooting
 

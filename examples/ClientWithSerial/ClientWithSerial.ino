@@ -31,7 +31,7 @@
 #include <SUPER_CAN.h>
 
 // Create client instance
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 // ===== CONFIGURATION =====
 // Set your unique serial number here
@@ -103,6 +103,7 @@ void setup() {
   Serial.println("  ping           - Ping broker");
   Serial.println("  status         - Show connection status");
   Serial.println("  serial         - Show serial number and ID");
+  Serial.println("  list           - List subscriptions");
   Serial.println("─────────────────────────────────────────────────");
   Serial.println();
 }
@@ -191,6 +192,9 @@ void loop() {
     } else if (input == "serial") {
       showSerialInfo();
       
+    } else if (input == "list") {
+      listSubscriptions();
+      
     } else if (input.length() > 0) {
       Serial.println("Unknown command. Type 'status' for help.");
     }
@@ -266,5 +270,42 @@ void showSerialInfo() {
     Serial.println("Connect to the broker to receive an ID.");
   }
   
+  Serial.println();
+}
+
+// List all subscribed topics
+void listSubscriptions() {
+  Serial.println();
+  Serial.println("╔═══════════════════════════════════════════════╗");
+  Serial.println("║         Subscribed Topics                     ║");
+  Serial.println("╚═══════════════════════════════════════════════╝");
+  Serial.println();
+  
+  uint8_t count = client.getSubscriptionCount();
+  if (count == 0) {
+    Serial.println("No active subscriptions.");
+    Serial.println();
+    return;
+  }
+  
+  Serial.println("Topic Name                       Hash");
+  Serial.println("─────────────────────────────────────────────────");
+  
+  client.listSubscribedTopics([](uint16_t hash, const String& name) {
+    // Print topic name (pad to 32 chars)
+    Serial.print(name);
+    for (int i = name.length(); i < 32; i++) {
+      Serial.print(" ");
+    }
+    Serial.print(" 0x");
+    if (hash < 0x1000) Serial.print("0");
+    if (hash < 0x100) Serial.print("0");
+    if (hash < 0x10) Serial.print("0");
+    Serial.println(hash, HEX);
+  });
+  
+  Serial.println("─────────────────────────────────────────────────");
+  Serial.print("Total subscriptions: ");
+  Serial.println(count);
   Serial.println();
 }

@@ -87,7 +87,7 @@ The pub/sub protocol uses a **broker-client** architecture:
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -154,7 +154,7 @@ For **ESP32**:
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -260,7 +260,7 @@ Use serial numbers for persistent client IDs across reconnections:
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 String SERIAL_NUMBER = "SENSOR_001";  // Or use MAC/chip ID
 
 void setup() {
@@ -409,8 +409,8 @@ broker.onDirectMessage([](uint8_t senderId, const String& msg) {
 Now that you have a working CAN pub/sub network:
 
 1. **Explore Examples** - Check the `examples` folder for more patterns
-2. **Read Documentation** - See [MQTT_API.md](MQTT_API.md) for complete API reference
-3. **Read Protocol Details** - See [MQTT_PROTOCOL.md](MQTT_PROTOCOL.md) for protocol specification
+2. **Read Documentation** - See [PUBSUB_API.md](PUBSUB_API.md) for complete API reference
+3. **Read Protocol Details** - See [PUBSUB_PROTOCOL.md](PUBSUB_PROTOCOL.md) for protocol specification
 4. **Build Your Application** - Create sensor networks, control systems, etc.
 
 ### Example Projects

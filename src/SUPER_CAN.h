@@ -17,6 +17,6 @@
 #endif
 
 // Include publish/subscribe protocol support
-#include "CANMqtt.h"
+#include "CANPubSub.h"
 
 #endif

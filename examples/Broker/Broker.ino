@@ -28,7 +28,7 @@
 #include <SUPER_CAN.h>
 
 // Create broker instance
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -203,7 +203,7 @@ void showStats() {
 
 // Publish a message from the broker
 void publishMessage(const String& topic, const String& message) {
-  uint16_t topicHash = CANMqttBase::hashTopic(topic);
+  uint16_t topicHash = CANPubSubBase::hashTopic(topic);
   broker.registerTopic(topic);
   broker.broadcastMessage(topicHash, message);
   

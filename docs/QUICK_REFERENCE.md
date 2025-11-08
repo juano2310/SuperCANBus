@@ -9,7 +9,7 @@ Quick reference for common operations in the Super CAN+ pub/sub protocol.
 ### Broker Setup
 ```cpp
 #include <SUPER_CAN.h>
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -24,7 +24,7 @@ void loop() {
 ### Client Setup
 ```cpp
 #include <SUPER_CAN.h>
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -41,7 +41,7 @@ void loop() {
 ### Client Setup with Persistent ID ⚡
 ```cpp
 #include <SUPER_CAN.h>
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   CAN.begin(500E3);
@@ -158,7 +158,7 @@ broker.onDirectMessage([](uint8_t senderId, const String& msg) {
 
 ### Send to Specific Client
 ```cpp
-uint16_t hash = CANMqttBase::hashTopic("alert");
+uint16_t hash = CANPubSubBase::hashTopic("alert");
 broker.sendToClient(0x10, hash, "Warning!");
 ```
 
@@ -169,7 +169,7 @@ broker.sendDirectMessage(0x10, "Config updated");
 
 ### Broadcast to Topic
 ```cpp
-uint16_t hash = CANMqttBase::hashTopic("broadcast");
+uint16_t hash = CANPubSubBase::hashTopic("broadcast");
 broker.registerTopic("broadcast");
 broker.broadcastMessage(hash, "System restart");
 ```
@@ -202,8 +202,8 @@ uint8_t topics = broker.getSubscriptionCount();
 ## Constants
 
 ```cpp
-CAN_MQTT_BROKER_ID       // 0x00 - Broker ID
-CAN_MQTT_UNASSIGNED_ID   // 0xFF - Not connected
+CAN_PS_BROKER_ID       // 0x00 - Broker ID
+CAN_PS_UNASSIGNED_ID   // 0xFF - Not connected
 
 MAX_SUBSCRIPTIONS        // 20 - Max topics
 MAX_SUBSCRIBERS_PER_TOPIC // 10 - Max subs per topic
@@ -386,7 +386,7 @@ String getTopicName(hash)     // Get topic name
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -429,7 +429,7 @@ void loop() {
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -460,9 +460,9 @@ void loop() {
 ## Need More Help?
 
 - 📖 [GETTING_STARTED.md](GETTING_STARTED.md) - Step-by-step tutorial
-- 📚 [MQTT_API.md](MQTT_API.md) - Complete API reference
+- 📚 [PUBSUB_API.md](PUBSUB_API.md) - Complete API reference
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md) - Architecture diagrams
-- 📋 [MQTT_PROTOCOL.md](MQTT_PROTOCOL.md) - Protocol specification
+- 📋 [PUBSUB_PROTOCOL.md](PUBSUB_PROTOCOL.md) - Protocol specification
 - 💡 [examples/](examples/) - Working examples
 
 ---

@@ -14,14 +14,14 @@ Complete API reference for the publish/subscribe protocol in Super CAN+ library.
 
 ## Broker API
 
-### CANMqttBroker
+### CANPubSubBroker
 
 Class for creating a pub/sub broker on the CAN bus.
 
 #### Constructor
 
 ```cpp
-CANMqttBroker(CANControllerClass& can)
+CANPubSubBroker(CANControllerClass& can)
 ```
 
 **Parameters:**
@@ -29,7 +29,7 @@ CANMqttBroker(CANControllerClass& can)
 
 **Example:**
 ```cpp
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 ```
 
 ---
@@ -188,7 +188,7 @@ Send a message to a specific client on a topic.
 
 **Example:**
 ```cpp
-uint16_t hash = CANMqttBase::hashTopic("alert");
+uint16_t hash = CANPubSubBase::hashTopic("alert");
 broker.sendToClient(0x10, hash, "Warning!");
 ```
 
@@ -227,7 +227,7 @@ Broadcast a message to all subscribers of a topic.
 
 **Example:**
 ```cpp
-uint16_t hash = CANMqttBase::hashTopic("broadcast");
+uint16_t hash = CANPubSubBase::hashTopic("broadcast");
 broker.registerTopic("broadcast");
 broker.broadcastMessage(hash, "System restart");
 ```
@@ -282,14 +282,14 @@ broker.getSubscribers(hash, subs, &count);
 
 ## Client API
 
-### CANMqttClient
+### CANPubSubClient
 
 Class for creating a pub/sub client on the CAN bus.
 
 #### Constructor
 
 ```cpp
-CANMqttClient(CANControllerClass& can)
+CANPubSubClient(CANControllerClass& can)
 ```
 
 **Parameters:**
@@ -297,7 +297,7 @@ CANMqttClient(CANControllerClass& can)
 
 **Example:**
 ```cpp
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 ```
 
 ---
@@ -593,7 +593,7 @@ Calculate a 16-bit hash for a topic name.
 
 **Example:**
 ```cpp
-uint16_t hash = CANMqttBase::hashTopic("sensors/temp");
+uint16_t hash = CANPubSubBase::hashTopic("sensors/temp");
 ```
 
 ---
@@ -675,23 +675,23 @@ Callback for connection events.
 ### Message Types
 
 ```cpp
-#define CAN_MQTT_SUBSCRIBE      0x01
-#define CAN_MQTT_UNSUBSCRIBE    0x02
-#define CAN_MQTT_PUBLISH        0x03
-#define CAN_MQTT_TOPIC_DATA     0x04
-#define CAN_MQTT_DIRECT_MSG     0x05
-#define CAN_MQTT_PING           0x06
-#define CAN_MQTT_PONG           0x07
-#define CAN_MQTT_ACK            0x08
-#define CAN_MQTT_ID_REQUEST     0xFF
-#define CAN_MQTT_ID_RESPONSE    0xFE
+#define CAN_PS_SUBSCRIBE      0x01
+#define CAN_PS_UNSUBSCRIBE    0x02
+#define CAN_PS_PUBLISH        0x03
+#define CAN_PS_TOPIC_DATA     0x04
+#define CAN_PS_DIRECT_MSG     0x05
+#define CAN_PS_PING           0x06
+#define CAN_PS_PONG           0x07
+#define CAN_PS_ACK            0x08
+#define CAN_PS_ID_REQUEST     0xFF
+#define CAN_PS_ID_RESPONSE    0xFE
 ```
 
 ### Special IDs
 
 ```cpp
-#define CAN_MQTT_BROKER_ID      0x00
-#define CAN_MQTT_UNASSIGNED_ID  0xFF
+#define CAN_PS_BROKER_ID      0x00
+#define CAN_PS_UNASSIGNED_ID  0xFF
 ```
 
 ### Configuration
@@ -709,7 +709,7 @@ Callback for connection events.
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   Serial.begin(115200);

@@ -1,11 +1,11 @@
 /*
-  CAN MQTT Network Monitor
+  CAN PubSub Network Monitor
   
   This example creates a diagnostic tool that monitors all traffic
-  on the CAN MQTT network without participating as a broker or client.
+  on the CAN PubSub network without participating as a broker or client.
   
   Features:
-  - Monitors all CAN MQTT message types
+  - Monitors all CAN PubSub message types
   - Displays client connections and subscriptions
   - Shows topic activity and message content
   - Provides network statistics
@@ -49,7 +49,7 @@ void setup() {
   while (!Serial);
   
   Serial.println("╔═══════════════════════════════════════════╗");
-  Serial.println("║    CAN MQTT Network Monitor v1.0          ║");
+  Serial.println("║    CAN PubSub Network Monitor v1.0        ║");
   Serial.println("╚═══════════════════════════════════════════╝");
   Serial.println();
   
@@ -68,7 +68,7 @@ void setup() {
   
   Serial.println("✓ Monitor active");
   Serial.println();
-  Serial.println("Monitoring CAN MQTT traffic...");
+  Serial.println("Monitoring CAN PubSub traffic...");
   Serial.println("Press 's' for statistics, 'r' to reset, 't' for topics");
   Serial.println("─────────────────────────────────────────────");
   Serial.println();

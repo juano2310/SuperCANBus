@@ -78,7 +78,7 @@ git clone https://github.com/sandeepmistry/arduino-CAN CAN
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttBroker broker(CAN);
+CANPubSubBroker broker(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -105,7 +105,7 @@ void loop() {
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 void setup() {
   Serial.begin(115200);
@@ -141,7 +141,7 @@ void loop() {
 ```cpp
 #include <SUPER_CAN.h>
 
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 String SERIAL_NUMBER = "ESP32_ABC123";  // Or use MAC/chip ID
 
 void setup() {
@@ -164,8 +164,8 @@ void loop() {
 ## Documentation
 
 - [API.md](API.md) - Original CAN bus API documentation
-- [MQTT_PROTOCOL.md](MQTT_PROTOCOL.md) - Complete pub/sub protocol documentation
-- [MQTT_API.md](MQTT_API.md) - Pub/Sub API reference
+- [PUBSUB_PROTOCOL.md](PUBSUB_PROTOCOL.md) - Complete pub/sub protocol documentation
+- [PUBSUB_API.md](PUBSUB_API.md) - Pub/Sub API reference
 - [SERIAL_NUMBER_MANAGEMENT.md](SERIAL_NUMBER_MANAGEMENT.md) - Client ID persistence with serial numbers
 - [FLASH_STORAGE.md](FLASH_STORAGE.md) - Flash memory storage guide
 - [GETTING_STARTED.md](GETTING_STARTED.md) - Quick start tutorial
@@ -220,7 +220,7 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 
 ## Configuration
 
-The pub/sub protocol can be configured by modifying constants in `CANMqtt.h`:
+The pub/sub protocol can be configured by modifying constants in `CANPubSub.h`:
 
 ```cpp
 #define MAX_SUBSCRIPTIONS       20  // Max unique topics

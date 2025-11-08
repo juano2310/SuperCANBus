@@ -32,7 +32,7 @@
 #include <SUPER_CAN.h>
 
 // Create client instance
-CANMqttClient client(CAN);
+CANPubSubClient client(CAN);
 
 // Connection status
 bool wasConnected = false;
@@ -208,7 +208,32 @@ void showStatus() {
 // List all subscribed topics
 void listSubscriptions() {
   Serial.println("\n=== Subscribed Topics ===");
-  Serial.print("Total: ");
-  Serial.println(client.getSubscriptionCount());
+  
+  uint8_t count = client.getSubscriptionCount();
+  if (count == 0) {
+    Serial.println("No active subscriptions.");
+    Serial.println();
+    return;
+  }
+  
+  Serial.println("Topic Name                       Hash");
+  Serial.println("─────────────────────────────────────────────");
+  
+  client.listSubscribedTopics([](uint16_t hash, const String& name) {
+    // Print topic name (pad to 32 chars)
+    Serial.print(name);
+    for (int i = name.length(); i < 32; i++) {
+      Serial.print(" ");
+    }
+    Serial.print(" 0x");
+    if (hash < 0x1000) Serial.print("0");
+    if (hash < 0x100) Serial.print("0");
+    if (hash < 0x10) Serial.print("0");
+    Serial.println(hash, HEX);
+  });
+  
+  Serial.println("─────────────────────────────────────────────");
+  Serial.print("Total subscriptions: ");
+  Serial.println(count);
   Serial.println();
 }

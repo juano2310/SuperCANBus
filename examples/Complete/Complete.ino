@@ -31,9 +31,9 @@
 
 // ===== GLOBAL OBJECTS =====
 #if IS_BROKER
-  CANMqttBroker mqtt(CAN);
+  CANPubSubBroker pubsub(CAN);
 #else
-  CANMqttClient mqtt(CAN);
+  CANPubSubClient pubsub(CAN);
 #endif
 
 void setup() {
@@ -73,22 +73,22 @@ void loop() {
 #if IS_BROKER
 
 void setupBroker() {
-  if (!mqtt.begin()) {
+  if (!pubsub.begin()) {
     Serial.println("Starting broker failed!");
     while (1);
   }
   
   Serial.println("Broker started successfully");
   
-  mqtt.onClientConnect(onClientConnect);
-  mqtt.onPublish(onBrokerPublish);
-  mqtt.onDirectMessage(onBrokerDirectMessage);
+  pubsub.onClientConnect(onClientConnect);
+  pubsub.onPublish(onBrokerPublish);
+  pubsub.onDirectMessage(onBrokerDirectMessage);
   
   Serial.println("\nBroker ready!");
 }
 
 void loopBroker() {
-  mqtt.loop();
+  pubsub.loop();
   
   if (Serial.available()) {
     String input = Serial.readStringUntil('\n');
@@ -97,9 +97,9 @@ void loopBroker() {
     if (input == "stats") {
       Serial.println("\n=== Broker Statistics ===");
       Serial.print("Connected clients: ");
-      Serial.println(mqtt.getClientCount());
+      Serial.println(pubsub.getClientCount());
       Serial.print("Active topics: ");
-      Serial.println(mqtt.getSubscriptionCount());
+      Serial.println(pubsub.getSubscriptionCount());
       Serial.print("Uptime: ");
       Serial.print(millis() / 1000);
       Serial.println(" seconds\n");
@@ -109,9 +109,9 @@ void loopBroker() {
       if (colonPos > 0) {
         String topic = input.substring(4, colonPos);
         String message = input.substring(colonPos + 1);
-        uint16_t topicHash = CANMqttBase::hashTopic(topic);
-        mqtt.registerTopic(topic);
-        mqtt.broadcastMessage(topicHash, message);
+        uint16_t topicHash = CANPubSubBase::hashTopic(topic);
+        pubsub.registerTopic(topic);
+        pubsub.broadcastMessage(topicHash, message);
         Serial.print("Published to [");
         Serial.print(topic);
         Serial.print("]: ");
@@ -124,7 +124,7 @@ void loopBroker() {
         String idStr = input.substring(4, colonPos);
         String message = input.substring(colonPos + 1);
         uint8_t clientId = (uint8_t)strtol(idStr.c_str(), NULL, 16);
-        mqtt.sendDirectMessage(clientId, message);
+        pubsub.sendDirectMessage(clientId, message);
         Serial.print("Sent to client 0x");
         Serial.println(clientId, HEX);
       }
@@ -162,43 +162,43 @@ void onBrokerDirectMessage(uint8_t senderId, const String& message) {
 #ifndef IS_BROKER
 
 void setupClient() {
-  mqtt.onConnect(onClientConnect);
-  mqtt.onMessage(onClientMessage);
-  mqtt.onDirectMessage(onClientDirectMessage);
+  pubsub.onConnect(onClientConnect);
+  pubsub.onMessage(onClientMessage);
+  pubsub.onDirectMessage(onClientDirectMessage);
   
   Serial.println("Connecting to broker...");
   delay(random(100, 500)); // Random delay to avoid collision
   
-  if (mqtt.begin(5000)) {
+  if (pubsub.begin(5000)) {
     Serial.print("Connected! Client ID: 0x");
-    Serial.println(mqtt.getClientId(), HEX);
+    Serial.println(pubsub.getClientId(), HEX);
   } else {
     Serial.println("Failed to connect to broker!");
   }
 }
 
 void loopClient() {
-  mqtt.loop();
+  pubsub.loop();
   
   if (Serial.available()) {
     String input = Serial.readStringUntil('\n');
     input.trim();
     
-    if (!mqtt.isConnected()) {
+    if (!pubsub.isConnected()) {
       Serial.println("Not connected to broker!");
       return;
     }
     
     if (input.startsWith("sub:")) {
       String topic = input.substring(4);
-      if (mqtt.subscribe(topic)) {
+      if (pubsub.subscribe(topic)) {
         Serial.print("Subscribed to: ");
         Serial.println(topic);
       }
       
     } else if (input.startsWith("unsub:")) {
       String topic = input.substring(6);
-      if (mqtt.unsubscribe(topic)) {
+      if (pubsub.unsubscribe(topic)) {
         Serial.print("Unsubscribed from: ");
         Serial.println(topic);
       }
@@ -208,7 +208,7 @@ void loopClient() {
       if (colonPos > 0) {
         String topic = input.substring(4, colonPos);
         String message = input.substring(colonPos + 1);
-        if (mqtt.publish(topic, message)) {
+        if (pubsub.publish(topic, message)) {
           Serial.print("Published to [");
           Serial.print(topic);
           Serial.print("]: ");
@@ -218,22 +218,22 @@ void loopClient() {
       
     } else if (input.startsWith("msg:")) {
       String message = input.substring(4);
-      if (mqtt.sendDirectMessage(message)) {
+      if (pubsub.sendDirectMessage(message)) {
         Serial.print("Sent to broker: ");
         Serial.println(message);
       }
       
     } else if (input == "ping") {
-      if (mqtt.ping()) {
+      if (pubsub.ping()) {
         Serial.println("Ping sent");
       }
       
     } else if (input == "status") {
       Serial.println("\n=== Status ===");
       Serial.print("Connected: Yes, ID: 0x");
-      Serial.println(mqtt.getClientId(), HEX);
+      Serial.println(pubsub.getClientId(), HEX);
       Serial.print("Subscriptions: ");
-      Serial.println(mqtt.getSubscriptionCount());
+      Serial.println(pubsub.getSubscriptionCount());
       Serial.print("Uptime: ");
       Serial.print(millis() / 1000);
       Serial.println(" seconds\n");
