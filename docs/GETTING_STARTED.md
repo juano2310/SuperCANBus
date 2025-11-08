@@ -1,6 +1,6 @@
-# Getting Started with CAN MQTT Protocol
+# Getting Started with CAN Pub/Sub Protocol
 
-This guide will help you get started with the MQTT-like protocol in the Super CAN+ library.
+This guide will help you get started with the publish/subscribe protocol in the Super CAN+ library.
 
 ## Table of Contents
 
@@ -48,7 +48,7 @@ Device 1          Device 2          Device 3
 
 ## Understanding the Architecture
 
-The MQTT protocol uses a **broker-client** architecture:
+The pub/sub protocol uses a **broker-client** architecture:
 
 ```
      ┌─────────────┐
@@ -93,7 +93,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   
-  Serial.println("=== CAN MQTT Broker ===");
+  Serial.println("=== CAN Pub/Sub Broker ===");
   
   // Start CAN at 500kbps
   if (!CAN.begin(500E3)) {
@@ -160,7 +160,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   
-  Serial.println("=== CAN MQTT Client ===");
+  Serial.println("=== CAN Pub/Sub Client ===");
   
   // Start CAN at 500kbps
   if (!CAN.begin(500E3)) {
@@ -253,7 +253,41 @@ Each client should only receive messages for its subscribed topics.
 
 ## Common Patterns
 
-### Pattern 1: Sensor Node
+### Pattern 1: Client with Persistent ID
+
+Use serial numbers for persistent client IDs across reconnections:
+
+```cpp
+#include <SUPER_CAN.h>
+
+CANMqttClient client(CAN);
+String SERIAL_NUMBER = "SENSOR_001";  // Or use MAC/chip ID
+
+void setup() {
+  Serial.begin(115200);
+  CAN.begin(500E3);
+  
+  // Auto-generate serial from ESP32 chip ID
+  #ifdef ESP32
+    uint64_t chipid = ESP.getEfuseMac();
+    SERIAL_NUMBER = "ESP32_" + String((uint32_t)chipid, HEX);
+  #endif
+  
+  // Connect with serial - always gets same ID!
+  if (client.begin(SERIAL_NUMBER)) {
+    Serial.print("Connected with persistent ID: 0x");
+    Serial.println(client.getClientId(), HEX);
+  }
+}
+```
+
+**Benefits:**
+- ✅ Same ID every reconnection
+- ✅ Survives power cycles
+- ✅ No manual ID configuration
+- ✅ Broker stores mapping in flash
+
+### Pattern 2: Sensor Node
 
 Publishes data periodically:
 
@@ -271,7 +305,7 @@ void loop() {
 }
 ```
 
-### Pattern 2: Display Node
+### Pattern 3: Display Node
 
 Subscribes to data and displays it:
 
@@ -372,7 +406,7 @@ broker.onDirectMessage([](uint8_t senderId, const String& msg) {
 
 ## Next Steps
 
-Now that you have a working CAN MQTT network:
+Now that you have a working CAN pub/sub network:
 
 1. **Explore Examples** - Check the `examples` folder for more patterns
 2. **Read Documentation** - See [MQTT_API.md](MQTT_API.md) for complete API reference
@@ -416,4 +450,4 @@ If you encounter issues:
    - Serial Monitor output
    - What you expected vs. what happened
 
-Happy CAN MQTT networking! 🚀
+Happy CAN pub/sub networking! 🚀

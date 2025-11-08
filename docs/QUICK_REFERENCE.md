@@ -1,6 +1,6 @@
-# CAN MQTT Quick Reference Card
+# CAN Pub/Sub Quick Reference Card
 
-Quick reference for common operations in the Super CAN+ MQTT protocol.
+Quick reference for common operations in the Super CAN+ pub/sub protocol.
 
 ---
 
@@ -30,6 +30,27 @@ void setup() {
   CAN.begin(500E3);
   if (client.begin()) {
     // Connected!
+  }
+}
+
+void loop() {
+  client.loop();
+}
+```
+
+### Client Setup with Persistent ID ⚡
+```cpp
+#include <SUPER_CAN.h>
+CANMqttClient client(CAN);
+
+void setup() {
+  CAN.begin(500E3);
+  
+  // Always gets same ID with serial number
+  String serial = "SENSOR_001";  // Or MAC/chip ID
+  if (client.begin(serial)) {
+    Serial.print("Persistent ID: 0x");
+    Serial.println(client.getClientId(), HEX);
   }
 }
 
@@ -446,4 +467,4 @@ void loop() {
 
 ---
 
-**Happy CAN MQTT Coding! 🚀**
+**Happy CAN Pub/Sub Coding! 🚀**

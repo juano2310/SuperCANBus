@@ -1,6 +1,6 @@
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
-// Extended with MQTT-like protocol by Juan Pablo Risso
+// Extended with publish/subscribe protocol by Juan Pablo Risso
 
 #ifndef CAN_H
 #define CAN_H
@@ -16,7 +16,7 @@
   // Example: MCP2515Class CAN;
 #endif
 
-// Include MQTT-like protocol support
+// Include publish/subscribe protocol support
 #include "CANMqtt.h"
 
 #endif

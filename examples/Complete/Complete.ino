@@ -1,7 +1,7 @@
 /*
-  CAN MQTT Complete Example
+  CAN Pub/Sub Complete Example
   
-  This example shows a complete CAN MQTT implementation with both
+  This example shows a complete CAN publish/subscribe implementation with both
   broker and client functionality that can be selected at compile time.
   
   This is based on the transceiver example provided and demonstrates:
@@ -21,7 +21,7 @@
   
   Created 2025
   by Juan Pablo Risso
-  Based on the MQTT-like CAN protocol
+  Based on the CAN publish/subscribe protocol
 */
 
 #include <SUPER_CAN.h>
@@ -40,7 +40,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   
-  Serial.println(IS_BROKER ? "\n=== CAN MQTT Broker ===" : "\n=== CAN MQTT Client ===");
+  Serial.println(IS_BROKER ? "\n=== CAN Pub/Sub Broker ===" : "\n=== CAN Pub/Sub Client ===");
   Serial.println("Initializing CAN bus...");
 
   // Initialize CAN bus at 500 kbps

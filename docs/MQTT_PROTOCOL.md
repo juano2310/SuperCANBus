@@ -1,8 +1,8 @@
-# CAN MQTT Protocol Documentation
+# CAN Pub/Sub Protocol Documentation
 
 ## Overview
 
-The Super CAN+ library includes a complete MQTT-like publish/subscribe protocol implementation for CAN bus networks. This protocol enables efficient topic-based messaging between multiple nodes with a central broker managing subscriptions and message routing.
+The Super CAN+ library includes a complete publish/subscribe protocol implementation for CAN bus networks. This protocol enables efficient topic-based messaging between multiple nodes with a central broker managing subscriptions and message routing.
 
 ## Architecture
 
@@ -32,6 +32,8 @@ The protocol defines the following message types (sent as CAN packet IDs):
 
 ### 1. Client Connection
 
+#### Standard Connection (Auto-assigned ID)
+
 ```
 Client                  Broker
   |                       |
@@ -40,6 +42,37 @@ Client                  Broker
   |<--ID_RESPONSE (0xFE)--|
   |    [assigned_id]      |
   |                       |
+```
+
+#### ⚡ Persistent ID Connection (Serial Number)
+
+When connecting with a serial number, the client sends the serial number in the ID_REQUEST:
+
+```
+Client                  Broker
+  |                       |
+  |---ID_REQUEST (0xFF)-->|
+  | [serial_number]       |  Broker checks flash storage 💾
+  |                       |  - Found: Returns saved ID
+  |<--ID_RESPONSE (0xFE)--|  - New: Assigns and saves ID
+  |    [persistent_id]    |
+  |                       |
+```
+
+**Benefits**:
+- Same client ID across reboots and reconnections
+- Stored in flash memory (ESP32 NVS / Arduino EEPROM)
+- Enables stateful applications and predictable routing
+
+**Example**:
+```cpp
+// Use MAC address as serial number
+String serial = WiFi.macAddress();
+if (client.begin(serial)) {
+  // Same ID every time this device connects
+  Serial.print("Connected with ID: ");
+  Serial.println(client.getClientId());
+}
 ```
 
 ### 2. Topic Subscription
@@ -231,6 +264,52 @@ void loop() {
 }
 ```
 
+### ⚡ Client with Persistent ID
+
+```cpp
+#include <SUPER_CAN.h>
+#ifdef ESP32
+  #include <WiFi.h>
+#endif
+
+CANMqttClient client(CAN);
+
+void setup() {
+  CAN.begin(500E3);
+  
+  client.onMessage([](uint16_t hash, const String& topic, const String& msg) {
+    Serial.print("Received on ");
+    Serial.print(topic);
+    Serial.print(": ");
+    Serial.println(msg);
+  });
+  
+  // Connect with MAC address as serial number
+  #ifdef ESP32
+    String serial = WiFi.macAddress();
+  #else
+    String serial = "ARDUINO_001";  // Custom serial
+  #endif
+  
+  if (client.begin(serial)) {  // 💾 Same ID every reconnection
+    Serial.print("Connected with persistent ID: ");
+    Serial.println(client.getClientId());
+    client.subscribe("sensors/temp");
+  }
+}
+
+void loop() {
+  client.loop();
+  
+  // Publish periodically
+  static unsigned long lastPublish = 0;
+  if (millis() - lastPublish > 5000) {
+    client.publish("sensors/temp", "25.5");
+    lastPublish = millis();
+  }
+}
+```
+
 ## Configuration Limits
 
 The following limits are defined and can be modified in `CANMqtt.h`:
@@ -247,6 +326,11 @@ The following limits are defined and can be modified in `CANMqtt.h`:
 4. **Avoid message storms**: Add delays between rapid message publishing
 5. **Use callbacks**: Register callbacks for efficient event handling
 6. **Topic naming**: Use hierarchical naming like "sensors/temperature"
+7. **⚡ Use persistent IDs**: Connect with serial numbers for production deployments
+   - Maintains same client ID across reboots
+   - Enables predictable message routing
+   - Required for stateful applications
+   - Use device-unique identifiers (MAC address, chip ID, etc.)
 
 ## Limitations
 
@@ -285,4 +369,4 @@ Possible future additions to the protocol:
 
 ## License
 
-This MQTT protocol implementation is part of the Super CAN+ library and inherits the same MIT license as the original arduino-CAN library.
+This pub/sub protocol implementation is part of the Super CAN+ library and inherits the same MIT license as the original arduino-CAN library.

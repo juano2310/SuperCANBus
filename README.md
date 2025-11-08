@@ -1,6 +1,6 @@
 # Super CAN - Library
 
-An enhanced Arduino library for CAN bus communication with built-in MQTT-like publish/subscribe protocol.
+An enhanced Arduino library for CAN bus communication with built-in publish/subscribe protocol.
 
 **Based on the excellent [arduino-CAN](https://github.com/sandeepmistry/arduino-CAN) library by Sandeep Mistry**
 
@@ -8,13 +8,14 @@ An enhanced Arduino library for CAN bus communication with built-in MQTT-like pu
 
 ✨ **All original arduino-CAN features** - Full compatibility with existing CAN applications
 
-🔥 **NEW: MQTT-like Protocol** - Complete publish/subscribe messaging system:
+🔥 **NEW: Pub/Sub Protocol** - Complete publish/subscribe messaging system:
 - **Broker-Client Architecture** - Central broker manages topic subscriptions and message routing
 - **Topic-Based Messaging** - Publish and subscribe to named topics
 - **Direct Messaging** - Send messages directly to the broker or specific clients
 - **Automatic Client ID Assignment** - Plug-and-play client connection
-- **Serial Number Registration** - Persistent client IDs based on unique identifiers
-- **Flash Memory Storage** - Client mappings survive power cycles (ESP32 NVS / Arduino EEPROM)
+- **⚡ Persistent ID Assignment** - Clients with serial numbers always get the same ID across reconnections
+- **Serial Number Registration** - Register clients using MAC addresses, chip IDs, or custom identifiers
+- **💾 Flash Memory Storage** - Client ID mappings survive power cycles (ESP32 NVS / Arduino EEPROM)
 - **Callback-Based API** - Event-driven message handling
 - **Multiple Examples** - Ready-to-use broker, client, and sensor node examples
 
@@ -70,7 +71,7 @@ cd ~/Documents/Arduino/libraries/
 git clone https://github.com/sandeepmistry/arduino-CAN CAN
 ```
 
-## Quick Start - MQTT Protocol
+## Quick Start - Pub/Sub Protocol
 
 ### Broker Node
 
@@ -135,11 +136,36 @@ void loop() {
 }
 ```
 
+### Client with Persistent ID (Serial Number)
+
+```cpp
+#include <SUPER_CAN.h>
+
+CANMqttClient client(CAN);
+String SERIAL_NUMBER = "ESP32_ABC123";  // Or use MAC/chip ID
+
+void setup() {
+  Serial.begin(115200);
+  CAN.begin(500E3);
+  
+  // Connect with serial number - same ID every time!
+  if (client.begin(SERIAL_NUMBER)) {
+    Serial.print("Connected with persistent ID: 0x");
+    Serial.println(client.getClientId(), HEX);
+    client.subscribe("sensors/temperature");
+  }
+}
+
+void loop() {
+  client.loop();
+}
+```
+
 ## Documentation
 
 - [API.md](API.md) - Original CAN bus API documentation
-- [MQTT_PROTOCOL.md](MQTT_PROTOCOL.md) - Complete MQTT protocol documentation
-- [MQTT_API.md](MQTT_API.md) - MQTT API reference
+- [MQTT_PROTOCOL.md](MQTT_PROTOCOL.md) - Complete pub/sub protocol documentation
+- [MQTT_API.md](MQTT_API.md) - Pub/Sub API reference
 - [SERIAL_NUMBER_MANAGEMENT.md](SERIAL_NUMBER_MANAGEMENT.md) - Client ID persistence with serial numbers
 - [FLASH_STORAGE.md](FLASH_STORAGE.md) - Flash memory storage guide
 - [GETTING_STARTED.md](GETTING_STARTED.md) - Quick start tutorial
@@ -151,31 +177,33 @@ void loop() {
 ### Original CAN Examples
 See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree/master/examples) for basic CAN usage.
 
-### MQTT Protocol Examples
-- **Broker** - MQTT broker with serial interface
-- **Client** - Interactive MQTT client
+### Pub/Sub Protocol Examples
+- **Broker** - Pub/Sub broker with serial interface
+- **Client** - Interactive pub/sub client
 - **BrokerWithSerial** - Broker with serial number management and flash storage
 - **ClientWithSerial** - Client with persistent ID using serial number
 - **StorageTest** - Flash storage testing and verification
 - **Complete** - Combined broker/client example (compile-time selectable)
 - **SensorNode** - Real-world sensor node with periodic publishing
 
-## MQTT Protocol Features
+## Pub/Sub Protocol Features
 
 ### Broker Capabilities
-- Automatic client ID assignment
-- Serial number-based persistent client IDs
-- Flash memory storage (survives power loss)
+- **Automatic client ID assignment** (0x10-0xFE)
+- **⚡ Persistent ID management** - Serial number-based client registration
+- **💾 Flash memory storage** - Mappings survive power loss and resets
 - Topic subscription management
 - Message routing to subscribers
 - Direct messaging support
 - Client connection tracking
 - Broadcast messaging
 - Client registration/unregistration API
+- Query clients by serial number or ID
 
 ### Client Capabilities
-- Automatic connection with ID request
-- Persistent ID with serial number registration
+- **Automatic connection** with ID request
+- **⚡ Persistent ID registration** using serial numbers (MAC, chip ID, custom)
+- **Reconnection-friendly** - Same ID assigned every time
 - Subscribe/unsubscribe to topics
 - Publish messages to topics
 - Send direct messages to broker
@@ -192,7 +220,7 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 
 ## Configuration
 
-The MQTT protocol can be configured by modifying constants in `CANMqtt.h`:
+The pub/sub protocol can be configured by modifying constants in `CANMqtt.h`:
 
 ```cpp
 #define MAX_SUBSCRIPTIONS       20  // Max unique topics
@@ -202,6 +230,7 @@ The MQTT protocol can be configured by modifying constants in `CANMqtt.h`:
 
 ## How It Works
 
+### Basic Connection Flow
 1. **Broker starts** and listens for client connections
 2. **Client connects** by requesting an ID from the broker
 3. **Broker assigns** a unique ID (0x10-0xFE)
@@ -210,13 +239,24 @@ The MQTT protocol can be configured by modifying constants in `CANMqtt.h`:
 6. **Broker routes** the message to all subscribers
 7. **Clients receive** messages via callbacks
 
+### Persistent ID Flow (with Serial Number)
+1. **Client sends** ID request with serial number (e.g., "ESP32_ABC123")
+2. **Broker checks** if serial number is already registered
+   - If YES → Returns existing ID from flash memory
+   - If NO → Assigns new ID and stores mapping to flash
+3. **Client receives** same ID every time it reconnects
+4. **Broker persists** mapping across power cycles
+
 Topics are hashed to 16-bit values for efficient CAN bus transmission.
 
-## Comparison: Traditional CAN vs MQTT Protocol
+## Comparison: Traditional CAN vs Pub/Sub Protocol
 
-| Feature | Traditional CAN | MQTT Protocol |
+| Feature | Traditional CAN | Pub/Sub Protocol |
 |---------|----------------|---------------|
 | Message routing | Manual ID management | Automatic topic-based |
+| Client IDs | Hard-coded, manual assignment | Dynamic or persistent (serial-based) |
+| Reconnection | May conflict with IDs | Same ID guaranteed with serial number |
+| Storage | No persistence | Flash memory for ID mappings |
 | Scalability | Fixed IDs, complex wiring | Dynamic subscription |
 | Flexibility | Hard-coded destinations | Runtime topic subscription |
 | Setup complexity | High | Low |
@@ -224,10 +264,10 @@ Topics are hashed to 16-bit values for efficient CAN bus transmission.
 
 ## Migration from arduino-CAN
 
-This library is fully backward compatible with arduino-CAN. To use the MQTT features:
+This library is fully backward compatible with arduino-CAN. To use the pub/sub features:
 
 1. Replace `#include <CAN.h>` with `#include <SUPER_CAN.h>`
-2. Add MQTT broker or client code
+2. Add pub/sub broker or client code
 3. All existing CAN code continues to work unchanged
 
 ## License
@@ -236,4 +276,4 @@ This library is [licensed](LICENSE) under the [MIT Licence](http://en.wikipedia.
 
 Based on [arduino-CAN](https://github.com/sandeepmistry/arduino-CAN) by Sandeep Mistry.
 
-MQTT protocol extensions by Juan Pablo Risso.
+Pub/Sub protocol extensions by Juan Pablo Risso.

@@ -1,7 +1,7 @@
 /*
-  CAN MQTT Client Example
+  CAN Pub/Sub Client Example
   
-  This example demonstrates how to create a CAN bus MQTT-like client
+  This example demonstrates how to create a CAN bus publish/subscribe client
   that can subscribe to topics, publish messages, and communicate with a broker.
   
   Features:
@@ -41,7 +41,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   
-  Serial.println("=== CAN MQTT Client ===");
+  Serial.println("=== CAN Pub/Sub Client ===");
   Serial.println("Initializing CAN bus...");
 
   // Initialize CAN bus at 500 kbps

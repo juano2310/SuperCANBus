@@ -1,8 +1,14 @@
 # Serial Number-Based Client ID Management
 
+> **⚡ Persistent ID Assignment** - A game-changing feature that makes your CAN network deployment-ready!
+
 ## Overview
 
-The Super CAN+ library now includes advanced client ID management using serial numbers. This allows nodes to maintain persistent IDs across reconnections by registering with unique identifiers such as MAC addresses, chip IDs, or custom serial numbers.
+The Super CAN+ library includes advanced client ID management using **serial numbers**. This allows nodes to maintain **persistent IDs across reconnections** by registering with unique identifiers such as MAC addresses, chip IDs, or custom serial numbers.
+
+**The Problem:** Traditional CAN networks require manual ID assignment. When a node restarts, it may get a different ID, breaking communication paths and requiring reconfiguration.
+
+**The Solution:** With serial number registration, each node gets the **same ID every time**, stored in flash memory. Perfect for production deployments!
 
 ## Key Features
 
@@ -544,4 +550,4 @@ See the following examples for full implementations:
 
 ---
 
-This feature makes CAN MQTT networks easier to manage and more suitable for production deployments!
+This feature makes CAN pub/sub networks easier to manage and more suitable for production deployments!

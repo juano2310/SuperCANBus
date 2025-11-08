@@ -1,14 +1,14 @@
 /*
-  CAN MQTT Client with Serial Number
+  CAN Pub/Sub Client with Serial Number
   
-  This example demonstrates a CAN bus MQTT client that registers
+  This example demonstrates a CAN bus publish/subscribe client that registers
   with the broker using a unique serial number. The broker will
   assign the same ID to this client every time it connects.
   
   Features:
   - Unique serial number identification
   - Persistent ID across reconnections
-  - All standard MQTT client features
+  - All standard pub/sub client features
   - Serial command interface
   
   Circuit:
@@ -52,7 +52,7 @@ void setup() {
   while (!Serial);
   
   Serial.println("╔═══════════════════════════════════════════════╗");
-  Serial.println("║  CAN MQTT Client with Serial Number          ║");
+  Serial.println("║  CAN Pub/Sub Client with Serial Number        ║");
   Serial.println("╚═══════════════════════════════════════════════╝");
   Serial.println();
   

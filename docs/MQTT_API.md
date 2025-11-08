@@ -1,6 +1,6 @@
-# MQTT API Reference
+# Pub/Sub API Reference
 
-Complete API reference for the MQTT-like protocol in Super CAN+ library.
+Complete API reference for the publish/subscribe protocol in Super CAN+ library.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Complete API reference for the MQTT-like protocol in Super CAN+ library.
 
 ### CANMqttBroker
 
-Class for creating an MQTT broker on the CAN bus.
+Class for creating a pub/sub broker on the CAN bus.
 
 #### Constructor
 
@@ -284,7 +284,7 @@ broker.getSubscribers(hash, subs, &count);
 
 ### CANMqttClient
 
-Class for creating an MQTT client on the CAN bus.
+Class for creating a pub/sub client on the CAN bus.
 
 #### Constructor
 

@@ -1,6 +1,6 @@
-# CAN MQTT Architecture Diagrams
+# CAN Pub/Sub Architecture Diagrams
 
-Visual reference for understanding the CAN MQTT protocol architecture.
+Visual reference for understanding the CAN pub/sub protocol architecture.
 
 ## Network Topology
 
@@ -35,6 +35,8 @@ Visual reference for understanding the CAN MQTT protocol architecture.
 
 ## Connection Sequence
 
+### Basic Connection (No Serial Number)
+
 ```
 Client                          Broker
   │                               │
@@ -50,6 +52,36 @@ Client                          Broker
   │  ✓ Connected                  │
   │  ✓ Ready to subscribe         │
   │                               │
+```
+
+### Persistent ID Connection ⚡ (With Serial Number)
+
+```
+Client                          Broker                Flash Memory
+  │                               │                        │
+  │────ID_REQUEST (0xFF)──────────▶│                        │
+  │    "ESP32_ABC123"             │                        │
+  │                               │                        │
+  │                               │───Check if exists─────▶│
+  │                               │                        │
+  │                               │◀──Found: 0x10─────────│
+  │                               │   (or assign new)      │
+  │◀───ID_RESPONSE (0xFE)─────────│                        │
+  │    [0x10]                     │                        │
+  │                               │                        │
+  │  ✓ Connected with ID 0x10     │                        │
+  │  ✓ Same ID every time! 🎯     │                        │
+  │                               │                        │
+  │  [Power cycle / Reset]        │                        │
+  │                               │                        │
+  │────ID_REQUEST (0xFF)──────────▶│                        │
+  │    "ESP32_ABC123"             │                        │
+  │                               │───Check if exists─────▶│
+  │                               │◀──Found: 0x10─────────│
+  │◀───ID_RESPONSE (0xFE)─────────│                        │
+  │    [0x10]                     │                        │
+  │                               │                        │
+  │  ✓ Same ID again! 🎯          │                        │
 ```
 
 ## Subscription Flow

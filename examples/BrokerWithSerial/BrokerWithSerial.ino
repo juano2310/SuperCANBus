@@ -1,7 +1,7 @@
 /*
-  CAN MQTT Broker with Serial Number Management
+  CAN Pub/Sub Broker with Serial Number Management
   
-  This example demonstrates a CAN bus MQTT-like broker with advanced
+  This example demonstrates a CAN bus publish/subscribe broker with advanced
   client ID management using serial numbers (MAC addresses, unique IDs, etc).
   
   Features:
@@ -46,7 +46,7 @@ void setup() {
   while (!Serial);
   
   Serial.println("╔═══════════════════════════════════════════════╗");
-  Serial.println("║  CAN MQTT Broker with Serial Number Mgmt      ║");
+  Serial.println("║  CAN Pub/Sub Broker with Serial Number Mgmt   ║");
   Serial.println("╚═══════════════════════════════════════════════╝");
   Serial.println();
   
@@ -89,6 +89,7 @@ void setup() {
   Serial.println("Commands:");
   Serial.println("  list           - List all registered clients");
   Serial.println("  clients        - Show active clients");
+  Serial.println("  topics         - List subscribed topics");
   Serial.println("  pub:topic:msg  - Publish to topic");
   Serial.println("  msg:id:msg     - Send direct message to client");
   Serial.println("  stats          - Show statistics");
@@ -114,6 +115,9 @@ void loop() {
       
     } else if (input == "clients") {
       listActiveClients();
+      
+    } else if (input == "topics") {
+      listTopics();
       
     } else if (input == "stats") {
       showStats();
@@ -270,6 +274,48 @@ void listActiveClients() {
   Serial.println("────────────────────────────────────────────────");
   Serial.print("Active clients: ");
   Serial.println(activeCount);
+  Serial.println();
+}
+
+// List all subscribed topics
+void listTopics() {
+  Serial.println();
+  Serial.println("╔═══════════════════════════════════════════════╗");
+  Serial.println("║         Subscribed Topics                     ║");
+  Serial.println("╚═══════════════════════════════════════════════╝");
+  Serial.println();
+  
+  if (broker.getSubscriptionCount() == 0) {
+    Serial.println("No topics subscribed yet.");
+    Serial.println();
+    return;
+  }
+  
+  Serial.println("Topic Name                       Hash      Subscribers");
+  Serial.println("────────────────────────────────────────────────────");
+  
+  broker.listSubscribedTopics([](uint16_t hash, const String& name, uint8_t count) {
+    // Print topic name (pad to 32 chars)
+    Serial.print(name);
+    for (int i = name.length(); i < 32; i++) {
+      Serial.print(" ");
+    }
+    
+    // Print hash
+    Serial.print("0x");
+    if (hash < 0x1000) Serial.print("0");
+    if (hash < 0x100) Serial.print("0");
+    if (hash < 0x10) Serial.print("0");
+    Serial.print(hash, HEX);
+    Serial.print("    ");
+    
+    // Print subscriber count
+    Serial.println(count);
+  });
+  
+  Serial.println("────────────────────────────────────────────────────");
+  Serial.print("Total topics: ");
+  Serial.println(broker.getSubscriptionCount());
   Serial.println();
 }
 

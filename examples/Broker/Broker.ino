@@ -1,7 +1,7 @@
 /*
-  CAN MQTT Broker Example
+  CAN Pub/Sub Broker Example
   
-  This example demonstrates how to create a CAN bus MQTT-like broker
+  This example demonstrates how to create a CAN bus publish/subscribe broker
   that manages topic subscriptions and message forwarding between clients.
   
   Features:
@@ -34,7 +34,7 @@ void setup() {
   Serial.begin(115200);
   while (!Serial);
   
-  Serial.println("=== CAN MQTT Broker ===");
+  Serial.println("=== CAN Pub/Sub Broker ===");
   Serial.println("Initializing CAN bus...");
 
   // Initialize CAN bus at 500 kbps
@@ -61,6 +61,7 @@ void setup() {
   Serial.println("\nBroker ready!");
   Serial.println("\nCommands:");
   Serial.println("  list           - List clients and subscriptions");
+  Serial.println("  topics         - List subscribed topics");
   Serial.println("  pub:topic:msg  - Publish to topic");
   Serial.println("  msg:id:msg     - Send direct message to client");
   Serial.println("  stats          - Show statistics");
@@ -78,6 +79,8 @@ void loop() {
     
     if (input == "list") {
       listClientsAndSubscriptions();
+    } else if (input == "topics") {
+      listTopics();
     } else if (input == "stats") {
       showStats();
     } else if (input.startsWith("pub:")) {
@@ -143,7 +146,46 @@ void listClientsAndSubscriptions() {
   
   // Note: This is a simplified display
   // In a full implementation, you would iterate through all subscriptions
+  Serial.println("Use 'topics' to see subscribed topics");
   Serial.println("Use 'stats' for detailed statistics");
+}
+
+// List all subscribed topics
+void listTopics() {
+  Serial.println("\n=== Subscribed Topics ===");
+  
+  if (broker.getSubscriptionCount() == 0) {
+    Serial.println("No topics subscribed yet.");
+    Serial.println();
+    return;
+  }
+  
+  Serial.println("Topic Name                       Hash      Subscribers");
+  Serial.println("───────────────────────────────────────────────────────");
+  
+  broker.listSubscribedTopics([](uint16_t hash, const String& name, uint8_t count) {
+    // Print topic name (pad to 32 chars)
+    Serial.print(name);
+    for (int i = name.length(); i < 32; i++) {
+      Serial.print(" ");
+    }
+    
+    // Print hash
+    Serial.print("0x");
+    if (hash < 0x1000) Serial.print("0");
+    if (hash < 0x100) Serial.print("0");
+    if (hash < 0x10) Serial.print("0");
+    Serial.print(hash, HEX);
+    Serial.print("    ");
+    
+    // Print subscriber count
+    Serial.println(count);
+  });
+  
+  Serial.println("───────────────────────────────────────────────────────");
+  Serial.print("Total topics: ");
+  Serial.println(broker.getSubscriptionCount());
+  Serial.println();
 }
 
 // Show broker statistics

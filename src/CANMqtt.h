@@ -1,4 +1,4 @@
-// CANMqtt.h - MQTT-like protocol for CAN bus
+// CANMqtt.h - Publish/Subscribe protocol for CAN bus
 // Part of Super CAN+ Library
 
 #ifndef CAN_MQTT_H
@@ -82,7 +82,7 @@ struct ClientMapping {
 #define STORAGE_MAGIC 0xCABE     // Magic number to verify valid data
 #define EEPROM_SIZE 2048         // EEPROM size for non-ESP32 platforms
 
-// Base MQTT class
+// Base pub/sub class
 class CANMqttBase {
 public:
   CANMqttBase(CANControllerClass& can);
@@ -100,7 +100,7 @@ protected:
   uint8_t _topicMappingCount;
 };
 
-// MQTT Broker class
+// Pub/Sub Broker class
 class CANMqttBroker : public CANMqttBase {
 public:
   CANMqttBroker(CANControllerClass& can);
@@ -130,6 +130,7 @@ public:
   uint8_t getClientCount();
   uint8_t getSubscriptionCount();
   void getSubscribers(uint16_t topicHash, uint8_t* subscribers, uint8_t* count);
+  void listSubscribedTopics(std::function<void(uint16_t hash, const String& name, uint8_t subscriberCount)> callback);
   
   // Client ID mapping management
   uint8_t registerClient(const String& serialNumber);
@@ -193,7 +194,7 @@ private:
   DirectMessageCallback _onDirectMessage;
 };
 
-// MQTT Client class
+// Pub/Sub Client class
 class CANMqttClient : public CANMqttBase {
 public:
   CANMqttClient(CANControllerClass& can);
@@ -216,7 +217,7 @@ public:
   // Message handling
   void handleMessage(int packetSize);
   
-  // MQTT operations
+  // Pub/Sub operations
   bool subscribe(const String& topic);
   bool unsubscribe(const String& topic);
   bool publish(const String& topic, const String& message);

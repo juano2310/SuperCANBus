@@ -1,4 +1,4 @@
-// CANMqtt.cpp - MQTT-like protocol for CAN bus
+// CANMqtt.cpp - Publish/Subscribe protocol for CAN bus
 // Part of Super CAN+ Library
 
 #include "CANMqtt.h"
@@ -123,8 +123,11 @@ void CANMqttBroker::handleSubscribe() {
   
   // Read topic name if available (for broker-side topic mapping)
   String topicName = "";
-  while (_can->available()) {
-    topicName += (char)_can->read();
+  if (_can->available() > 0) {
+    uint8_t topicLen = _can->read();
+    for (uint8_t i = 0; i < topicLen && _can->available(); i++) {
+      topicName += (char)_can->read();
+    }
   }
   
   // Register topic name if provided
@@ -165,23 +168,10 @@ void CANMqttBroker::handlePublish() {
   uint8_t publisherId = _can->read();
   uint16_t topicHash = (_can->read() << 8) | _can->read();
   
-  // Read topic name (up to null terminator)
-  String topicName = "";
-  while (_can->available()) {
-    char c = (char)_can->read();
-    if (c == '\0') break;
-    topicName += c;
-  }
+  // Get topic name from stored mapping (learned from SUBSCRIBE)
+  String topicName = getTopicName(topicHash);
   
-  // Register topic name if provided
-  if (topicName.length() > 0) {
-    registerTopic(topicName);
-  } else {
-    // Fallback to stored mapping or hex format
-    topicName = getTopicName(topicHash);
-  }
-  
-  // Read message (remaining data)
+  // Read message (all remaining data)
   String message = "";
   while (_can->available()) {
     message += (char)_can->read();
@@ -372,6 +362,17 @@ void CANMqttBroker::getSubscribers(uint16_t topicHash, uint8_t* subscribers, uin
     }
   }
   *count = 0;
+}
+
+void CANMqttBroker::listSubscribedTopics(std::function<void(uint16_t hash, const String& name, uint8_t subscriberCount)> callback) {
+  if (!callback) return;
+  
+  for (uint8_t i = 0; i < _subTableSize; i++) {
+    uint16_t hash = _subscriptions[i].topicHash;
+    String name = getTopicName(hash);
+    uint8_t count = _subscriptions[i].subCount;
+    callback(hash, name, count);
+  }
 }
 
 // ===== Client ID Mapping Methods =====
@@ -719,6 +720,7 @@ bool CANMqttClient::subscribe(const String& topic) {
   _can->write(_clientId);
   _can->write(topicHash >> 8);
   _can->write(topicHash & 0xFF);
+  _can->write((uint8_t)topic.length());  // Send topic name length
   _can->print(topic);  // Send topic name to broker for mapping
   _can->endPacket();
   
@@ -765,8 +767,6 @@ bool CANMqttClient::publish(const String& topic, const String& message) {
   _can->write(_clientId);
   _can->write(topicHash >> 8);
   _can->write(topicHash & 0xFF);
-  _can->print(topic);  // Send topic name
-  _can->write('\0');   // Null terminator to separate topic from message
   _can->print(message);
   _can->endPacket();
   
