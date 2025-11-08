@@ -272,5 +272,3 @@ The extended frame support provides:
 ✅ **Robust**: Timeout protection and proper reassembly  
 ✅ **Backward Compatible**: Works with existing code  
 ✅ **Flexible**: Configurable limits and timeouts  
-
-Your CAN MQTT implementation now supports the full range of message sizes needed for real-world IoT applications!

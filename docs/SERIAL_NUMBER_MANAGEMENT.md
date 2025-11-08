@@ -12,14 +12,16 @@ The Super CAN+ library includes advanced client ID management using **serial num
 
 ## Key Features
 
-✅ **Persistent ID Assignment** - Same serial number always gets the same client ID  
-✅ **Flash Memory Storage** - Mappings survive power outages and resets  
+✅ **Persistent ID Assignment** - Same serial number always gets the same client ID (sequential: 1, 2, 3, ...)  
+✅ **Flash Memory Storage** - Mappings and subscriptions survive power outages and resets  
+✅ **🔄 Automatic Subscription Restoration** - Subscriptions automatically restored on reconnection  
 ✅ **Automatic Registration** - First connection automatically registers the client  
-✅ **Reconnection Friendly** - Same ID assigned on reconnect  
+✅ **Reconnection Friendly** - Same ID and subscriptions assigned on reconnect  
 ✅ **Client Management** - Add, edit, remove, and query registered clients  
 ✅ **Serial Number Lookup** - Find client ID by serial or serial by ID  
 ✅ **Platform Agnostic** - Uses ESP32 Preferences or Arduino EEPROM  
 ✅ **Backward Compatible** - Old clients without serial numbers still work  
+✅ **Extended Frame Support** - Handles long serial numbers (>8 bytes) automatically  
 
 ## How It Works
 
@@ -30,29 +32,35 @@ The Super CAN+ library includes advanced client ID management using **serial num
                   ↓
 2. Broker:        Checks if "ESP32_ABC123" is registered
                   ↓
-                  YES → Returns existing ID (e.g., 0x10)
-                  NO  → Assigns new ID and stores mapping
+                  YES → Returns existing ID (e.g., 1)
+                  NO  → Assigns new ID (starting from 1) and stores mapping
                   ↓
-3. Broker Sends:  ID_RESPONSE with assigned ID
+3. Broker Sends:  ID_RESPONSE with assigned ID + has_subscriptions flag
                   ↓
-4. Client:        Stores ID and begins operation
+4. Broker:        If has stored subscriptions, restores them automatically
+                  ↓
+5. Broker Sends:  SUBSCRIBE notifications with topic names
+                  ↓
+6. Client:        Stores ID, restores topic mappings, fully operational
 ```
 
 ### Mapping Table
 
 The broker maintains a table of registered clients **stored in flash memory**:
 
-| Client ID | Serial Number | Status |
-|-----------|---------------|--------|
-| 0x10      | ESP32_ABC123  | Active |
-| 0x11      | NODE_001      | Active |
-| 0x12      | SENSOR_A      | Inactive |
-| 3         | MAC_00:1A:2B  | Active |
+| Client ID | Serial Number | Status   | Subscriptions  |
+|-----------|---------------|----------|----------------|
+| 1         | ESP32_ABC123  | Active   | temp, humidity |
+| 2         | NODE_001      | Active   | status         |
+| 3         | SENSOR_A      | Inactive | sensors/motion |
+| 4         | MAC_00:1A:2B  | Active   | alerts         |
 
-- **Client ID**: Unique 8-bit identifier (starting from 1, broker is 0)
+- **Client ID**: Unique 8-bit identifier (sequential: 1, 2, 3, ... broker is 0)
 - **Serial Number**: String identifier (MAC, UUID, custom) - max 32 chars
 - **Status**: Active (currently connected) or Inactive
+- **Subscriptions**: Stored topic subscriptions, automatically restored on reconnect
 - **Storage**: Automatically saved to flash memory on each change
+- **Display**: IDs shown in decimal format (1, 2, 3) not hex (0x01, 0x02, 0x03)
 
 ## API Reference
 

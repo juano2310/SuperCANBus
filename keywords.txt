@@ -7,9 +7,9 @@
 #######################################
 
 CAN	KEYWORD1
-CANMqttBroker	KEYWORD1
-CANMqttClient	KEYWORD1
-CANMqttBase	KEYWORD1
+CANPubSubBroker	KEYWORD1
+CANPubSubClient	KEYWORD1
+CANPubSubBase	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
@@ -47,7 +47,7 @@ setSPIFrequency	KEYWORD2
 setClockFrequency	KEYWORD2
 dumpRegisters	KEYWORD2
 
-# MQTT Protocol Methods
+# PubSub Protocol Methods
 loop	KEYWORD2
 handleMessage	KEYWORD2
 subscribe	KEYWORD2
@@ -85,25 +85,32 @@ updateClientSerial	KEYWORD2
 getRegisteredClientCount	KEYWORD2
 listRegisteredClients	KEYWORD2
 getSerialNumber	KEYWORD2
+requestClientIDWithSerial	KEYWORD2
 
 # Persistent Storage
 saveMappingsToStorage	KEYWORD2
 loadMappingsFromStorage	KEYWORD2
 clearStoredMappings	KEYWORD2
+restoreClientSubscriptions	KEYWORD2
+
+# Extended Frame Handling
+handleSubscribeNotification	KEYWORD2
+sendExtendedMessage	KEYWORD2
+processExtendedFrame	KEYWORD2
 
 #######################################
 # Constants (LITERAL1)
 #######################################
 
-CAN_MQTT_SUBSCRIBE	LITERAL1
-CAN_MQTT_UNSUBSCRIBE	LITERAL1
-CAN_MQTT_PUBLISH	LITERAL1
-CAN_MQTT_TOPIC_DATA	LITERAL1
-CAN_MQTT_DIRECT_MSG	LITERAL1
-CAN_MQTT_ID_REQUEST	LITERAL1
-CAN_MQTT_ID_RESPONSE	LITERAL1
-CAN_MQTT_PING	LITERAL1
-CAN_MQTT_PONG	LITERAL1
-CAN_MQTT_ACK	LITERAL1
-CAN_MQTT_BROKER_ID	LITERAL1
-CAN_MQTT_UNASSIGNED_ID	LITERAL1
+CAN_PS_SUBSCRIBE	LITERAL1
+CAN_PS_UNSUBSCRIBE	LITERAL1
+CAN_PS_PUBLISH	LITERAL1
+CAN_PS_TOPIC_DATA	LITERAL1
+CAN_PS_DIRECT_MSG	LITERAL1
+CAN_PS_ID_REQUEST	LITERAL1
+CAN_PS_ID_RESPONSE	LITERAL1
+CAN_PS_PING	LITERAL1
+CAN_PS_PONG	LITERAL1
+CAN_PS_ACK	LITERAL1
+CAN_PS_BROKER_ID	LITERAL1
+CAN_PS_UNASSIGNED_ID	LITERAL1

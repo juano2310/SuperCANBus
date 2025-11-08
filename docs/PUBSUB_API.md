@@ -306,19 +306,30 @@ CANPubSubClient client(CAN);
 
 ```cpp
 bool begin(unsigned long timeout = 5000)
+bool begin(const String& serialNumber, unsigned long timeout = 5000)
 ```
 
-Connect to the broker and request a client ID.
+Connect to the broker and request a client ID. If a serial number is provided, the client will receive a persistent ID and automatically restore previous subscriptions.
 
 **Parameters:**
+- `serialNumber` - Optional unique identifier for persistent ID assignment
 - `timeout` - Connection timeout in milliseconds (default: 5000)
 
 **Returns:** `true` if connected successfully, `false` otherwise
 
 **Example:**
 ```cpp
+// Simple connection (ID assigned sequentially: 1, 2, 3, ...)
 if (client.begin(5000)) {
   Serial.println("Connected to broker");
+}
+
+// Persistent connection with automatic subscription restoration
+String serial = "ESP32_" + String((uint32_t)ESP.getEfuseMac(), HEX);
+if (client.begin(serial, 5000)) {
+  Serial.print("Connected with persistent ID: ");
+  Serial.println(client.getClientId(), DEC);
+  // Previous subscriptions automatically restored!
 }
 ```
 

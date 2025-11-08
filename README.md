@@ -12,10 +12,12 @@ An enhanced Arduino library for CAN bus communication with built-in publish/subs
 - **Broker-Client Architecture** - Central broker manages topic subscriptions and message routing
 - **Topic-Based Messaging** - Publish and subscribe to named topics
 - **Direct Messaging** - Send messages directly to the broker or specific clients
-- **Automatic Client ID Assignment** - Plug-and-play client connection
+- **Automatic Client ID Assignment** - Plug-and-play client connection (sequential IDs: 1, 2, 3, ...)
 - **⚡ Persistent ID Assignment** - Clients with serial numbers always get the same ID across reconnections
+- **🔄 Automatic Subscription Restoration** - Clients automatically restore subscriptions after power cycles
 - **Serial Number Registration** - Register clients using MAC addresses, chip IDs, or custom identifiers
-- **💾 Flash Memory Storage** - Client ID mappings survive power cycles (ESP32 NVS / Arduino EEPROM)
+- **💾 Flash Memory Storage** - Client ID mappings and subscriptions survive power cycles (ESP32 NVS / Arduino EEPROM)
+- **Extended Frame Support** - Handles messages longer than 8 bytes automatically
 - **Callback-Based API** - Event-driven message handling
 - **Multiple Examples** - Ready-to-use broker, client, and sensor node examples
 
@@ -189,12 +191,13 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 ## Pub/Sub Protocol Features
 
 ### Broker Capabilities
-- **Automatic client ID assignment** (starting from 1)
+- **Automatic client ID assignment** (sequential: 1, 2, 3, ... displayed in decimal)
 - **⚡ Persistent ID management** - Serial number-based client registration
-- **💾 Flash memory storage** - Mappings survive power loss and resets
-- Topic subscription management
+- **💾 Flash memory storage** - Mappings and subscriptions survive power loss and resets
+- **🔄 Subscription restoration** - Automatically restores subscriptions when clients reconnect
+- Topic subscription management with topic name storage
 - Message routing to subscribers
-- Direct messaging support
+- Direct messaging support (supports extended frames for long messages)
 - Client connection tracking
 - Broadcast messaging
 - Client registration/unregistration API
@@ -203,12 +206,14 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 ### Client Capabilities
 - **Automatic connection** with ID request
 - **⚡ Persistent ID registration** using serial numbers (MAC, chip ID, custom)
-- **Reconnection-friendly** - Same ID assigned every time
+- **🔄 Automatic subscription restoration** - Subscriptions restored after power cycle
+- **Reconnection-friendly** - Same ID and subscriptions every time
 - Subscribe/unsubscribe to topics
-- Publish messages to topics
-- Send direct messages to broker
+- Publish messages to topics (supports extended frames for long messages)
+- Send direct messages to broker (supports extended frames for long messages)
 - Ping/pong for connection monitoring
 - Event callbacks for all message types
+- Topic name tracking for readable display
 
 ### Message Types
 - `SUBSCRIBE` / `UNSUBSCRIBE` - Topic subscription management
@@ -243,11 +248,13 @@ The pub/sub protocol can be configured by modifying constants in `CANPubSub.h`:
 1. **Client sends** ID request with serial number (e.g., "ESP32_ABC123")
 2. **Broker checks** if serial number is already registered
    - If YES → Returns existing ID from flash memory
-   - If NO → Assigns new ID and stores mapping to flash
+   - If NO → Assigns new ID (starting from 1) and stores mapping to flash
 3. **Client receives** same ID every time it reconnects
-4. **Broker persists** mapping across power cycles
+4. **Broker automatically restores** all previous subscriptions for that client
+5. **Client receives** subscription notifications with topic names
+6. **Client is fully restored** with same ID and all subscriptions intact
 
-Topics are hashed to 16-bit values for efficient CAN bus transmission.
+Topics are hashed to 16-bit values for efficient CAN bus transmission. Extended frames are automatically used for messages longer than 8 bytes.
 
 ## Comparison: Traditional CAN vs Pub/Sub Protocol
 
