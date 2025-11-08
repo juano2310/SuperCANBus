@@ -1,7 +1,10 @@
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#ifndef ARDUINO_ARCH_ESP32
+// Include MCP2515 for:
+// 1. Non-ESP32 platforms (AVR, STM32, etc.)
+// 2. ESP32 variants without built-in CAN (C3, C6, H2, C2)
+#if !defined(ARDUINO_ARCH_ESP32) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C2)
 
 #ifndef MCP2515_H
 #define MCP2515_H
@@ -13,12 +16,20 @@
 #define MCP2515_DEFAULT_CLOCK_FREQUENCY 16e6
 
 #if defined(ARDUINO_ARCH_SAMD) && defined(PIN_SPI_MISO) && defined(PIN_SPI_MOSI) && defined(PIN_SPI_SCK) && (PIN_SPI_MISO == 10) && (PIN_SPI_MOSI == 8) && (PIN_SPI_SCK == 9)
-// Arduino MKR board: MKR CAN shield CS is pin 3, INT is pin 7
-#define MCP2515_DEFAULT_CS_PIN          3
-#define MCP2515_DEFAULT_INT_PIN         7
+  // Arduino MKR board: MKR CAN shield CS is pin 3, INT is pin 7
+  #define MCP2515_DEFAULT_CS_PIN          3
+  #define MCP2515_DEFAULT_INT_PIN         7
+#elif defined(CONFIG_IDF_TARGET_ESP32C3)
+  // ESP32-C3: Use GPIO 7 for CS, GPIO 8 for INT
+  #define MCP2515_DEFAULT_CS_PIN          7
+  #define MCP2515_DEFAULT_INT_PIN         8
+#elif defined(CONFIG_IDF_TARGET_ESP32C6)
+  // ESP32-C6: Use GPIO 7 for CS, GPIO 8 for INT
+  #define MCP2515_DEFAULT_CS_PIN          7
+  #define MCP2515_DEFAULT_INT_PIN         8
 #else
-#define MCP2515_DEFAULT_CS_PIN          10
-#define MCP2515_DEFAULT_INT_PIN         2
+  #define MCP2515_DEFAULT_CS_PIN          10
+  #define MCP2515_DEFAULT_INT_PIN         2
 #endif
 
 class MCP2515Class : public CANControllerClass {

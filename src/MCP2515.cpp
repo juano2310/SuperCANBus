@@ -1,7 +1,10 @@
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#ifndef ARDUINO_ARCH_ESP32
+// Compile MCP2515 for:
+// 1. Non-ESP32 platforms (AVR, STM32, etc.)
+// 2. ESP32 variants without built-in CAN (C3, C6, H2, C2)
+#if !defined(ARDUINO_ARCH_ESP32) || defined(CONFIG_IDF_TARGET_ESP32C3) || defined(CONFIG_IDF_TARGET_ESP32C6) || defined(CONFIG_IDF_TARGET_ESP32H2) || defined(CONFIG_IDF_TARGET_ESP32C2)
 
 #include "MCP2515.h"
 

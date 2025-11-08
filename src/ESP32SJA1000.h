@@ -1,7 +1,9 @@
 // Copyright (c) Sandeep Mistry. All rights reserved.
 // Licensed under the MIT license. See LICENSE file in the project root for full license information.
 
-#ifdef ARDUINO_ARCH_ESP32
+// Only for ESP32 variants with built-in SJA1000 CAN controller
+// ESP32-C3, C6, H2, C2 don't have this hardware
+#if defined(ARDUINO_ARCH_ESP32) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32C6) && !defined(CONFIG_IDF_TARGET_ESP32H2) && !defined(CONFIG_IDF_TARGET_ESP32C2)
 
 #ifndef ESP32_SJA1000_H
 #define ESP32_SJA1000_H

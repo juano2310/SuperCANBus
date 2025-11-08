@@ -52,7 +52,7 @@ Requires an external 3.3V CAN transceiver, such as a [TI SN65HVD230](http://www.
 | CTX | 5 |
 | CRX | 4 |
 
-`CTX` and `CRX` pins can be changed by using `CAN.setPins(rx, tx)`.
+`CTX` and `CRX` pins can be changed by using `CAN.setPins(rx, tx);` but make sure these are the CAN PINs on the board. Not all pins can be CAN.
 
 ## Installation
 
