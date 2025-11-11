@@ -167,6 +167,7 @@ bool CANPubSubBroker::begin() {
   _storedSubCount = 0;
   _storedTopicCount = 0;
   _pingStateCount = 0;  // Clear ping states - will be reinitialized when clients connect
+  _topicMappingCount = 0;  // Clear runtime topic name mappings - will be repopulated from storage
   
   // Initialize storage and load saved mappings
   initStorage();
@@ -1142,6 +1143,8 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
       
       if (topicName.length() > 0) {
         registerTopic(topicName);
+        // Also persist topic name to flash storage
+        storeTopicName(topicHash, topicName);
       }
       
       addSubscription(clientId, topicHash);

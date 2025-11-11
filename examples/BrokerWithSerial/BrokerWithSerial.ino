@@ -109,6 +109,7 @@ void setup() {
   Serial.println("  unreg:SN       - Unregister by serial number");
   Serial.println("  find:SN        - Find client ID by serial");
   Serial.println("  clear          - Clear all stored mappings");
+  Serial.println("  clearall       - Clear everything (mappings, subscriptions, topics)");
   Serial.println("  ping:on        - Enable auto-ping");
   Serial.println("  ping:off       - Disable auto-ping");
   Serial.println("  interval:ms    - Set ping interval (ms)");
@@ -173,6 +174,9 @@ void loop() {
       
     } else if (input == "clear") {
       clearAllMappings();
+      
+    } else if (input == "clearall") {
+      clearEverything();
       
     } else if (input == "ping:on") {
       broker.enableAutoPing(true);
@@ -439,6 +443,49 @@ void findClient(const String& serial) {
   } else {
     Serial.print("No client found with serial: ");
     Serial.println(serial);
+  }
+}
+
+// Clear everything (mappings, subscriptions, topics, ping config)
+void clearEverything() {
+  Serial.println("⚠ WARNING: This will clear ALL stored data:");
+  Serial.println("  - Client mappings");
+  Serial.println("  - Subscriptions");
+  Serial.println("  - Topic names");
+  Serial.println("  - Ping configuration");
+  Serial.println("Type 'YES' to confirm or anything else to cancel:");
+  
+  // Wait for confirmation (with timeout)
+  unsigned long startTime = millis();
+  while (!Serial.available() && (millis() - startTime) < 10000);
+  
+  if (Serial.available()) {
+    String confirm = Serial.readStringUntil('\n');
+    confirm.trim();
+    
+    if (confirm == "YES") {
+      broker.clearStoredMappings();
+      broker.clearStoredSubscriptions();
+      broker.clearStoredTopicNames();
+      broker.clearStoredPingConfig();
+      
+      Serial.println("✓ All data cleared from flash memory");
+      Serial.println("ⓘ Restarting...");
+      Serial.flush();
+      delay(100);
+      
+      #if defined(ESP32) || defined(ESP8266)
+        ESP.restart();
+      #else
+        // For Arduino boards, use software reset via watchdog
+        void(* resetFunc) (void) = 0; // Declare reset function at address 0
+        resetFunc(); // Call reset
+      #endif
+    } else {
+      Serial.println("Cancelled");
+    }
+  } else {
+    Serial.println("Timeout - cancelled");
   }
 }
 
