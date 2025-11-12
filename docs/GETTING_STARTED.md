@@ -87,7 +87,7 @@ The pub/sub protocol uses a **broker-client** architecture:
 ### Step 1: Create the Sketch
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 
@@ -154,7 +154,7 @@ For **ESP32**:
 ### Step 1: Create the Sketch
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 
@@ -260,7 +260,7 @@ Each client should only receive messages for its subscribed topics.
 Use serial numbers for persistent client IDs across reconnections:
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 String SERIAL_NUMBER = "SENSOR_001";  // Or use MAC/chip ID

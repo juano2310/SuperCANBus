@@ -8,7 +8,7 @@ Quick reference for common operations in the Super CAN+ pub/sub protocol.
 
 ### Broker Setup
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 CANPubSubBroker broker(CAN);
 
 void setup() {
@@ -23,7 +23,7 @@ void loop() {
 
 ### Client Setup
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 CANPubSubClient client(CAN);
 
 void setup() {
@@ -40,7 +40,7 @@ void loop() {
 
 ### Client Setup with Persistent ID ⚡
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 CANPubSubClient client(CAN);
 
 void setup() {
@@ -420,7 +420,7 @@ String getTopicName(hash)     // Get topic name
 ## Example: Complete Client
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 
@@ -463,7 +463,7 @@ void loop() {
 ## Example: Complete Broker
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 

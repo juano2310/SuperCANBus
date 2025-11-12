@@ -7,7 +7,7 @@
 // - Persistent ID using serial numbers
 // - 🔄 Automatic subscription restoration (if subscribed to topics)
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 // Pin definitions for MCP2515 (adjust for your setup)
 #define CAN_CS_PIN    5

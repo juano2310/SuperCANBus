@@ -133,7 +133,7 @@ No manual re-subscription needed! 🚀
 ### Minimal Working Example
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 String SERIAL_NUMBER = "ESP32_ABC123";

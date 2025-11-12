@@ -33,7 +33,7 @@
   by Juan Pablo Risso
 */
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 // Create client instance
 CANPubSubClient client(CAN);

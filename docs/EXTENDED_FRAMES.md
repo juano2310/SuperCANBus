@@ -183,7 +183,7 @@ Adjust these constants in `CANPubSub.h` if needed:
 
 ### Client Registration with Long Serial
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 #include <WiFi.h>
 
 CANPubSubClient client(CAN);

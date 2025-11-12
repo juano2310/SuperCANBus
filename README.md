@@ -80,7 +80,7 @@ git clone https://github.com/sandeepmistry/arduino-CAN CAN
 ### Broker Node
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 
@@ -107,7 +107,7 @@ void loop() {
 ### Client Node
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 
@@ -143,7 +143,7 @@ void loop() {
 ### Client with Persistent ID (Serial Number)
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 String SERIAL_NUMBER = "ESP32_ABC123";  // Or use MAC/chip ID
@@ -310,7 +310,7 @@ Topics are hashed to 16-bit values for efficient CAN bus transmission. Extended 
 
 This library is fully backward compatible with arduino-CAN. To use the pub/sub features:
 
-1. Replace `#include <CAN.h>` with `#include <SUPER_CAN.h>`
+1. Replace `#include <CAN.h>` with `#include <SuperCANBus.h>`
 2. Add pub/sub broker or client code
 3. All existing CAN code continues to work unchanged
 

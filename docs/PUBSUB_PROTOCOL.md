@@ -264,7 +264,7 @@ Register callback for connection events.
 ### Basic Broker
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 
@@ -288,7 +288,7 @@ void loop() {
 ### Basic Client
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 
@@ -322,7 +322,7 @@ void loop() {
 ### ⚡ Client with Persistent ID
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 #ifdef ESP32
   #include <WiFi.h>
 #endif

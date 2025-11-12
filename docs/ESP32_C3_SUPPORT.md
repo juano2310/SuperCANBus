@@ -26,7 +26,7 @@ INT    -> GPIO 8 (optional interrupt pin)
 ### Code Example
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 #include <SPI.h>
 
 #define CAN_CS_PIN    7

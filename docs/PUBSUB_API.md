@@ -869,7 +869,7 @@ Callback for connection events.
 ## Complete Example
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 

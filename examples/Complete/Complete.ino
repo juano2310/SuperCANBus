@@ -25,7 +25,7 @@
   Based on the CAN publish/subscribe protocol
 */
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 // ===== CONFIGURATION =====
 #define IS_BROKER true  // Set to false for client nodes

@@ -396,7 +396,7 @@ Serial.println(serial);
 ### Broker with Serial Number Management
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 
@@ -437,7 +437,7 @@ void loop() {
 ### Client with ESP32 Chip ID
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 String serialNumber;
@@ -473,7 +473,7 @@ void loop() {
 ### Client with MAC Address
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 #include <WiFi.h>
 
 CANPubSubClient client(CAN);

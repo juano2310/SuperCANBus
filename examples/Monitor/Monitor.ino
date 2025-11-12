@@ -22,7 +22,7 @@
   by Juan Pablo Risso
 */
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 // Statistics
 unsigned long totalMessages = 0;

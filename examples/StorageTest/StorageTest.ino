@@ -19,7 +19,7 @@
   by Juan Pablo Risso
 */
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 

@@ -146,7 +146,7 @@ Example with default settings (5s interval, 2 max missed):
 ### Basic Broker with Auto-Ping
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubBroker broker(CAN);
 
@@ -175,7 +175,7 @@ void loop() {
 ### Client with Pong Logging
 
 ```cpp
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 
 CANPubSubClient client(CAN);
 

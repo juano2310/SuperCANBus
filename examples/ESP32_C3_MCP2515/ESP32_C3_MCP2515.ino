@@ -11,7 +11,7 @@
 // SCK    -> GPIO 4 (SCK)
 // INT    -> GPIO 8 (configurable, optional)
 
-#include <SUPER_CAN.h>
+#include <SuperCANBus.h>
 #include <SPI.h>
 
 // Pin definitions for ESP32-C3
