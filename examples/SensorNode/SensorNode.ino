@@ -7,6 +7,8 @@
   Features:
   - Publishes sensor data periodically
   - Subscribes to control topics
+  - 🔄 AUTOMATIC SUBSCRIPTION RESTORATION on reconnect
+  - Persistent ID using serial number
   - Responds to direct messages
   - Automatic reconnection
   
@@ -30,6 +32,9 @@
 // Create client instance
 CANPubSubClient client(CAN);
 
+// Serial number for persistent ID
+String SERIAL_NUMBER;
+
 // Configuration
 const int LED_PIN = 13;
 const int TEMP_SENSOR_PIN = A0;
@@ -51,6 +56,20 @@ void setup() {
   
   Serial.println("=== CAN PubSub Sensor Node ===");
   Serial.println("Initializing...");
+  
+  // Generate unique serial number
+  #ifdef ESP32
+    uint64_t chipid = ESP.getEfuseMac();
+    SERIAL_NUMBER = "SENSOR_" + String((uint32_t)(chipid >> 32), HEX) + 
+                                 String((uint32_t)chipid, HEX);
+    SERIAL_NUMBER.toUpperCase();
+  #else
+    SERIAL_NUMBER = "SENSOR_NODE_001";  // Fixed ID for non-ESP32
+  #endif
+  
+  Serial.print("Serial Number: ");
+  Serial.println(SERIAL_NUMBER);
+  Serial.println();
 
   // Initialize CAN bus
   if (!CAN.begin(500E3)) {
@@ -92,15 +111,30 @@ void loop() {
 void connectToBroker() {
   Serial.println("Connecting to broker...");
   
-  if (client.begin(5000)) {
-    Serial.print("Connected! Client ID: 0x");
-    Serial.println(client.getClientId(), HEX);
+  // Connect with serial number for persistent ID
+  if (client.begin(SERIAL_NUMBER, 5000)) {
+    Serial.print("Connected! Client ID: ");
+    Serial.println(client.getClientId(), DEC);
     
-    // Subscribe to control topics
-    client.subscribe("control/led");
-    client.subscribe("control/interval");
+    // Check if subscriptions were restored
+    uint8_t subCount = client.getSubscriptionCount();
+    if (subCount > 0) {
+      Serial.println();
+      Serial.println("🔄 Subscriptions automatically restored!");
+      Serial.print("   Restored ");
+      Serial.print(subCount);
+      Serial.println(" control topic(s)");
+      Serial.println("   ℹ️  No need to re-subscribe!");
+    } else {
+      // First connection - subscribe to control topics
+      Serial.println("First connection - subscribing to control topics...");
+      client.subscribe("control/led");
+      client.subscribe("control/interval");
+      Serial.println("✓ Subscribed to control topics");
+      Serial.println("   (Subscriptions will be restored on next reconnect)");
+    }
     
-    Serial.println("Subscribed to control topics");
+    Serial.println();
     
     // Publish initial status
     client.publish("sensors/status", "online");

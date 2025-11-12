@@ -1333,11 +1333,27 @@ bool CANPubSubClient::connect(const String& serialNumber, unsigned long timeout)
   requestClientIDWithSerial(serialNumber);
   
   unsigned long startTime = millis();
-  while (_clientId == CAN_PS_UNASSIGNED_ID && (millis() - startTime) < timeout) {
+  unsigned long idReceivedTime = 0;
+  bool idReceived = false;
+  
+  // Wait for ID assignment and subscription restoration
+  while ((millis() - startTime) < timeout) {
     int packetSize = _can->parsePacket();
     if (packetSize > 0) {
       handleMessage(packetSize);
+      
+      // Check if we just received our ID
+      if (!idReceived && _clientId != CAN_PS_UNASSIGNED_ID) {
+        idReceived = true;
+        idReceivedTime = millis();
+      }
     }
+    
+    // If we have an ID and enough time has passed for subscription restoration, we're done
+    if (idReceived && (millis() - idReceivedTime) >= 200) {
+      break;
+    }
+    
     delay(10);
   }
   

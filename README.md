@@ -186,17 +186,38 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 - **Client** - Interactive pub/sub client
 - **BrokerWithSerial** - Broker with serial number management and flash storage
 - **ClientWithSerial** - Client with persistent ID using serial number
+- **SubscriptionRestore** - ⭐ **Demo of automatic subscription restoration** (recommended starting point!)
 - **StorageTest** - Flash storage testing and verification
 - **Complete** - Combined broker/client example (compile-time selectable)
 - **SensorNode** - Real-world sensor node with periodic publishing
 
 ## Pub/Sub Protocol Features
 
+### 🎯 Zero-Touch Reconnection
+
+**The killer feature!** Clients with serial numbers get automatic subscription restoration:
+
+```cpp
+// First boot
+client.begin("ESP32_ABC123");
+client.subscribe("sensors/temp");
+client.subscribe("alerts/critical");
+// Broker stores everything in flash ✓
+
+// After power cycle or reset...
+client.begin("ESP32_ABC123");
+// ✨ Subscriptions automatically restored!
+// ✨ Same client ID! 
+// ✨ Ready to receive messages immediately!
+// NO manual subscribe() calls needed!
+```
+
 ### Broker Capabilities
 - **Automatic client ID assignment** (sequential: 1, 2, 3, ... displayed in decimal)
 - **⚡ Persistent ID management** - Serial number-based client registration
 - **💾 Flash memory storage** - Mappings, subscriptions, and topic names survive power loss and resets
-- **🔄 Subscription restoration** - Automatically restores subscriptions when clients reconnect
+- **🔄 Subscription restoration** - Automatically restores subscriptions when clients reconnect **WITHOUT ANY CODE CHANGES**
+- **Topic name preservation** - Full topic names stored and restored (not just hashes)
 - Topic subscription management with topic name storage
 - Message routing to subscribers
 - Direct messaging support (supports extended frames for long messages)
@@ -208,8 +229,9 @@ See the [arduino-CAN examples](https://github.com/sandeepmistry/arduino-CAN/tree
 ### Client Capabilities
 - **Automatic connection** with ID request
 - **⚡ Persistent ID registration** using serial numbers (MAC, chip ID, custom)
-- **🔄 Automatic subscription restoration** - Subscriptions restored after power cycle
+- **🔄 Automatic subscription restoration** - Subscriptions restored after power cycle **ZERO CODE CHANGES NEEDED**
 - **Reconnection-friendly** - Same ID and subscriptions every time
+- **Topic name preservation** - Full topic names maintained across reboots
 - Subscribe/unsubscribe to topics
 - Publish messages to topics (supports extended frames for long messages)
 - Send direct messages to broker (supports extended frames for long messages)

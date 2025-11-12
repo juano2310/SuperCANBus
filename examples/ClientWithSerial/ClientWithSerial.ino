@@ -8,6 +8,7 @@
   Features:
   - Unique serial number identification
   - Persistent ID across reconnections
+  - 🔄 AUTOMATIC SUBSCRIPTION RESTORATION - No need to re-subscribe!
   - All standard pub/sub client features
   - Serial command interface
   
@@ -91,6 +92,27 @@ void setup() {
   if (client.begin(SERIAL_NUMBER, 5000)) {
     Serial.print("✓ Connected! Client ID: ");
     Serial.println(client.getClientId(), DEC);
+    
+    // Check if subscriptions were restored
+    uint8_t subCount = client.getSubscriptionCount();
+    if (subCount > 0) {
+      Serial.println();
+      Serial.println("🔄 Subscriptions automatically restored from broker!");
+      Serial.print("   Restored ");
+      Serial.print(subCount);
+      Serial.print(" subscription(s): ");
+      
+      // List restored subscriptions
+      bool first = true;
+      client.listSubscribedTopics([&first](uint16_t hash, const String& name) {
+        if (!first) Serial.print(", ");
+        Serial.print(name);
+        first = false;
+      });
+      Serial.println();
+      Serial.println("   ℹ️  No need to re-subscribe manually!");
+    }
+    
     wasConnected = true;
   } else {
     Serial.println("× Failed to connect to broker!");
@@ -122,6 +144,14 @@ void loop() {
     Serial.println("    Attempting to reconnect...");
     if (client.connect(SERIAL_NUMBER, 5000)) {
       Serial.println("✓ Reconnected!");
+      
+      // Check if subscriptions were restored
+      uint8_t subCount = client.getSubscriptionCount();
+      if (subCount > 0) {
+        Serial.print("🔄 Restored ");
+        Serial.print(subCount);
+        Serial.println(" subscription(s) automatically");
+      }
     }
     wasConnected = false;
   }

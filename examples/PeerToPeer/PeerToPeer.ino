@@ -1,6 +1,11 @@
 // PeerToPeer.ino - Example of peer-to-peer messaging between clients
 // This example demonstrates how registered clients (with serial numbers) 
 // can send messages directly to each other
+//
+// Features:
+// - Peer-to-peer messaging between permanent clients
+// - Persistent ID using serial numbers
+// - 🔄 Automatic subscription restoration (if subscribed to topics)
 
 #include <SUPER_CAN.h>
 
@@ -42,9 +47,19 @@ void setup() {
   if (client.begin(MY_SERIAL, 5000)) {
     Serial.print("Connected! Client ID: ");
     Serial.println(client.getClientId());
+    
+    // Check if subscriptions were restored
+    uint8_t subCount = client.getSubscriptionCount();
+    if (subCount > 0) {
+      Serial.print("\n🔄 Restored ");
+      Serial.print(subCount);
+      Serial.println(" subscription(s) from previous session");
+    }
+    
     Serial.println("\nPeer-to-peer messaging enabled!");
     Serial.println("Only clients with permanent IDs (1-100) can use this feature.");
     Serial.println("Temporary clients (101+) cannot send or receive peer messages.\n");
+    Serial.println("Note: Same ID and subscriptions preserved across reconnections!");
   } else {
     Serial.println("Failed to connect to broker!");
     while (1) delay(100);

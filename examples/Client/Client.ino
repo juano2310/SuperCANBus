@@ -12,6 +12,10 @@
   - Connection status monitoring
   - Serial command interface
   
+  Note: This client uses temporary IDs (101+). For persistent IDs and
+        automatic subscription restoration, see ClientWithSerial.ino or
+        SubscriptionRestore.ino examples
+  
   Circuit:
   - MCP2515 CAN module connected to SPI pins
   - Or ESP32 with built-in CAN controller
@@ -63,6 +67,10 @@ void setup() {
   if (client.begin(5000)) {
     Serial.print("Connected! Client ID: ");
     Serial.println(client.getClientId(), DEC);
+    Serial.println("(Temporary ID - will change on reconnect)");
+    Serial.println();
+    Serial.println("💡 Tip: Use ClientWithSerial.ino for persistent ID");
+    Serial.println("   and automatic subscription restoration!");
     wasConnected = true;
   } else {
     Serial.println("Failed to connect to broker!");

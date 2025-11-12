@@ -7,6 +7,7 @@
   This is based on the transceiver example provided and demonstrates:
   - Broker: Topic subscription management and message routing
   - Client: Subscribe, publish, and direct messaging
+  - 🔄 Client with automatic subscription restoration
   - Interactive serial interface
   
   Circuit:
@@ -34,6 +35,7 @@
   CANPubSubBroker pubsub(CAN);
 #else
   CANPubSubClient pubsub(CAN);
+  String SERIAL_NUMBER;  // For persistent ID and subscription restoration
 #endif
 
 void setup() {
@@ -162,6 +164,20 @@ void onBrokerDirectMessage(uint8_t senderId, const String& message) {
 #ifndef IS_BROKER
 
 void setupClient() {
+  // Generate unique serial number for persistent ID
+  #ifdef ESP32
+    uint64_t chipid = ESP.getEfuseMac();
+    SERIAL_NUMBER = "CLIENT_" + String((uint32_t)(chipid >> 32), HEX) + 
+                                 String((uint32_t)chipid, HEX);
+    SERIAL_NUMBER.toUpperCase();
+  #else
+    SERIAL_NUMBER = "CLIENT_" + String(random(1000, 9999));
+  #endif
+  
+  Serial.print("Serial Number: ");
+  Serial.println(SERIAL_NUMBER);
+  Serial.println();
+  
   pubsub.onConnect(onClientConnect);
   pubsub.onMessage(onClientMessage);
   pubsub.onDirectMessage(onClientDirectMessage);
@@ -170,9 +186,29 @@ void setupClient() {
   Serial.println("Connecting to broker...");
   delay(random(100, 500)); // Random delay to avoid collision
   
-  if (pubsub.begin(5000)) {
+  // Connect with serial number for persistent ID and subscription restoration
+  if (pubsub.begin(SERIAL_NUMBER, 5000)) {
     Serial.print("Connected! Client ID: ");
     Serial.println(pubsub.getClientId(), DEC);
+    
+    // Check if subscriptions were restored
+    uint8_t subCount = pubsub.getSubscriptionCount();
+    if (subCount > 0) {
+      Serial.println();
+      Serial.println("🔄 Subscriptions automatically restored!");
+      Serial.print("   Restored ");
+      Serial.print(subCount);
+      Serial.print(" subscription(s): ");
+      
+      bool first = true;
+      pubsub.listSubscribedTopics([&first](uint16_t hash, const String& name) {
+        if (!first) Serial.print(", ");
+        Serial.print(name);
+        first = false;
+      });
+      Serial.println();
+      Serial.println("   ℹ️  No need to re-subscribe!");
+    }
   } else {
     Serial.println("Failed to connect to broker!");
   }
@@ -233,8 +269,22 @@ void loopClient() {
       Serial.println("\n=== Status ===");
       Serial.print("Connected: Yes, ID: ");
       Serial.println(pubsub.getClientId(), DEC);
+      Serial.print("Serial Number: ");
+      Serial.println(SERIAL_NUMBER);
       Serial.print("Subscriptions: ");
       Serial.println(pubsub.getSubscriptionCount());
+      
+      if (pubsub.getSubscriptionCount() > 0) {
+        Serial.print("Topics: ");
+        bool first = true;
+        pubsub.listSubscribedTopics([&first](uint16_t hash, const String& name) {
+          if (!first) Serial.print(", ");
+          Serial.print(name);
+          first = false;
+        });
+        Serial.println();
+      }
+      
       Serial.print("Uptime: ");
       Serial.print(millis() / 1000);
       Serial.println(" seconds\n");

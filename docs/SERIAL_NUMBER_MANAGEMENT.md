@@ -14,7 +14,8 @@ The Super CAN+ library includes advanced client ID management using **serial num
 
 ✅ **Persistent ID Assignment** - Same serial number always gets the same client ID (range: 1-100)  
 ✅ **Flash Memory Storage** - Mappings and subscriptions survive power outages and resets  
-✅ **🔄 Automatic Subscription Restoration** - Subscriptions automatically restored on reconnection  
+✅ **🔄 Automatic Subscription Restoration** - Subscriptions automatically restored on reconnection **NO RE-SUBSCRIBE NEEDED!**  
+✅ **Topic Name Preservation** - Full topic names stored and restored (not just hashes)  
 ✅ **Peer-to-Peer Messaging** - Registered clients can send direct messages to each other  
 ✅ **Automatic Registration** - First connection automatically registers the client  
 ✅ **Reconnection Friendly** - Same ID and subscriptions assigned on reconnect  
@@ -33,17 +34,57 @@ The Super CAN+ library includes advanced client ID management using **serial num
                   ↓
 2. Broker:        Checks if "ESP32_ABC123" is registered
                   ↓
-                  YES → Returns existing ID (e.g., 1)
+                  YES → Returns existing ID (e.g., 1) + checks for stored subscriptions
                   NO  → Assigns new ID (starting from 1) and stores mapping
                   ↓
 3. Broker Sends:  ID_RESPONSE with assigned ID + has_subscriptions flag
                   ↓
-4. Broker:        If has stored subscriptions, restores them automatically
+4. Client:        Receives ID and waits 200ms for restoration messages
                   ↓
-5. Broker Sends:  SUBSCRIBE notifications with topic names
+5. Broker:        If has stored subscriptions, sends SUB_RESTORE messages
                   ↓
-6. Client:        Stores ID, restores topic mappings, fully operational
+6. Broker Sends:  SUB_RESTORE messages with topic hash + full topic name
+                  ↓
+7. Client:        Receives each SUB_RESTORE, rebuilds subscription list
+                  ↓
+8. Client:        Fully operational - NO manual re-subscription needed!
 ```
+
+### 🎯 Automatic Subscription Restoration
+
+**This is the killer feature!** When a client with a known serial number reconnects after a power cycle or restart:
+
+1. **Broker remembers everything** - All subscriptions stored in flash
+2. **Client gets same ID** - Uses stored serial number mapping
+3. **Subscriptions auto-restore** - Broker sends `SUB_RESTORE` messages with full topic names
+4. **Client ready immediately** - No need to call `subscribe()` again!
+
+**Example:**
+```cpp
+// First connection
+client.begin("ESP32_ABC123");
+client.subscribe("sensors/temperature");
+client.subscribe("sensors/humidity");
+// Subscriptions stored in broker's flash memory
+
+// Device restarts or loses power...
+
+// Reconnect after restart
+client.begin("ESP32_ABC123");
+// ✨ Magic! Client automatically has both subscriptions restored
+// No need to call subscribe() again!
+```
+
+**What gets restored:**
+- ✅ Topic hashes (for routing)
+- ✅ Full topic names (for display/logging)
+- ✅ Client's position in subscription table
+- ✅ Ready to receive messages immediately
+
+**Timing details:**
+- Client waits 200ms after receiving ID for restoration messages
+- Broker sends restoration messages with 15ms spacing
+- Typical restoration: < 100ms for 5 subscriptions
 
 ### Mapping Table
 
@@ -562,11 +603,13 @@ Both can coexist on the same network!
 | Power Cycle Safety | ❌ Lost on power loss | ✅ Survives power loss |
 | Client Identification | ❌ Only by ID | ✅ By serial + ID |
 | Configuration Management | ❌ Manual tracking | ✅ Automatic |
-| Subscription Restoration | ❌ Must resubscribe | ✅ Automatic restore |
+| **Subscription Restoration** | **❌ Must resubscribe manually** | **✅ Automatic restore - NO CODE CHANGES!** |
+| Topic Names | ❌ Lost on restart | ✅ Preserved in flash |
 | Peer-to-Peer Messaging | ❌ Not available | ✅ Fully supported |
 | Network Administration | ❌ Difficult | ✅ Easy |
 | Debugging | ❌ Hard to identify | ✅ Clear identification |
 | Hot Swap Support | ❌ Manual reconfiguration | ✅ Automatic recognition |
+| Zero-Touch Reconnection | ❌ App must track state | ✅ Broker handles everything |
 
 ## Use Cases
 
@@ -616,6 +659,19 @@ Equipment with serial plates. The CAN network maps serial numbers to IDs for ass
 - Maximum 31 characters (32 with null terminator)
 - Truncate or hash long identifiers
 - Example: Use last 12 chars of MAC address
+
+### Subscriptions not restored on reconnect
+- Verify client is using serial number: `client.begin(serialNumber)` not `client.begin()`
+- Check broker has subscriptions stored: Use `clients` command in BrokerWithSerial
+- Ensure client waits after connection (automatic, but check no early `return`)
+- Verify broker called `saveSubscriptionsToStorage()` (automatic on subscribe)
+- Check flash memory is working: Use `broker.getRegisteredClientCount()` to verify persistence
+
+### Subscriptions restored but messages not received
+- This is normal! Broker table is updated but you need to publish to see messages
+- Check broker is forwarding: Use broker's `topics` command to verify subscribers
+- Test with: `pub:your_topic:test_message` from broker's serial monitor
+- Client should receive message via `onMessage()` callback
 
 ## Complete Example
 
