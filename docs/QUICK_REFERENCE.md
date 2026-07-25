@@ -171,6 +171,19 @@ broker.onDirectMessage([](uint8_t senderId, const String& msg) {
 });
 ```
 
+### Any Node: Raw Frame Logging (TX + RX) ⚡
+```cpp
+// Broker or client - sees every physical CAN frame before dispatch
+broker.onRawFrame([](bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk) {
+  Serial.print(isTx ? "TX " : "RX ");
+  Serial.print("id=0x");
+  Serial.print(id, HEX);
+  Serial.print(" len=");
+  Serial.println(len);
+});
+```
+See [RAW_FRAME_LOGGING.md](RAW_FRAME_LOGGING.md) for full details.
+
 ---
 
 ## Broker Operations
@@ -413,6 +426,9 @@ uint8_t getSubscriptionCount()   // Get topic count
 uint16_t hashTopic(topic)     // Calculate hash
 void registerTopic(topic)     // Register name
 String getTopicName(hash)     // Get topic name
+bool sendFrame(id, data, len, extended) // Send one raw CAN frame
+void onRawFrame(callback)     // Observe every TX/RX physical frame
+uint32_t getTxFailCount()     // Count of failed sendFrame() calls
 ```
 
 ---
@@ -499,6 +515,7 @@ void loop() {
 - 📚 [PUBSUB_API.md](PUBSUB_API.md) - Complete API reference
 - 🏗️ [ARCHITECTURE.md](ARCHITECTURE.md) - Architecture diagrams
 - 📋 [PUBSUB_PROTOCOL.md](PUBSUB_PROTOCOL.md) - Protocol specification
+- 🔍 [RAW_FRAME_LOGGING.md](RAW_FRAME_LOGGING.md) - Raw CAN frame logging hook
 - 💡 [examples/](examples/) - Working examples
 
 ---

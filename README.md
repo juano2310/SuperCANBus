@@ -175,6 +175,7 @@ void loop() {
 - [GETTING_STARTED.md](GETTING_STARTED.md) - Quick start tutorial
 - [ARCHITECTURE.md](ARCHITECTURE.md) - System architecture
 - [QUICK_REFERENCE.md](QUICK_REFERENCE.md) - Quick reference cheat sheet
+- [RAW_FRAME_LOGGING.md](RAW_FRAME_LOGGING.md) - Raw CAN frame logging hook for diagnostics/cloud logging
 
 ## Examples
 
@@ -238,6 +239,34 @@ client.begin("ESP32_ABC123");
 - Automatic ping/pong for connection monitoring with configurable timeouts
 - Event callbacks for all message types
 - Topic name tracking for readable display
+- **🔍 Raw frame logging hook** - Observe every physical CAN frame (TX and RX) for diagnostics or cloud logging
+
+### 🔍 Raw Frame Logging (Diagnostics)
+
+Both `CANPubSubBroker` and `CANPubSubClient` support an `onRawFrame()` hook that sees **every physical CAN frame**, sent or received, before any pub/sub-level filtering or dispatch — useful for bus sniffing, debugging, or streaming 100% of bus traffic to an external log:
+
+```cpp
+broker.onRawFrame([](bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk) {
+  Serial.print(isTx ? "TX " : "RX ");
+  Serial.print("id=0x");
+  Serial.print(id, HEX);
+  Serial.print(" len=");
+  Serial.println(len);
+});
+```
+
+- RX events fire before target-ID filtering, so a broker sees *all* bus traffic, not just messages addressed to it.
+- TX events fire once per physical frame sent via `sendFrame()` - a multi-frame extended message fires once per fragment.
+- If no callback is registered it's a cheap no-op (no allocation).
+
+Pair it with `getTxFailCount()` for a lightweight, always-on TX reliability counter:
+
+```cpp
+Serial.print("TX failures: ");
+Serial.println(client.getTxFailCount());
+```
+
+See [RAW_FRAME_LOGGING.md](docs/RAW_FRAME_LOGGING.md) for the full guide.
 
 ### Message Types
 - `SUBSCRIBE` / `UNSUBSCRIBE` - Topic subscription management
@@ -291,6 +320,7 @@ Topics are hashed to 16-bit values for efficient CAN bus transmission. Extended 
 - [Peer-to-Peer Messaging](docs/PEER_TO_PEER.md)
 - [Extended Frames](docs/EXTENDED_FRAMES.md)
 - [Flash Storage](docs/FLASH_STORAGE.md)
+- [Raw Frame Logging](docs/RAW_FRAME_LOGGING.md)
 - [Architecture](docs/ARCHITECTURE.md)
 
 ## Comparison: Traditional CAN vs Pub/Sub Protocol

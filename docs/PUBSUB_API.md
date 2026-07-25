@@ -787,6 +787,85 @@ Get the topic name for a hash (if previously registered).
 
 ---
 
+### sendFrame()
+
+```cpp
+bool sendFrame(uint32_t id, const uint8_t* data, uint8_t len, bool extended = false)
+```
+
+Low-level send of a single physical CAN frame. Available on both `CANPubSubBroker` and `CANPubSubClient` (inherited from `CANPubSubBase`). It replicates the library's internal `beginPacket()`/`write()`/`endPacket()` sequence, but captures the real success/failure of `endPacket()`, increments the TX failure counter on failure, and fires the [raw-frame hook](#onrawframe) registered via `onRawFrame()`. All single-frame sends in the library go through `sendFrame()`, and `sendExtendedMessage()` calls it once per fragment for multi-frame messages, so it's also useful for applications that need to send a custom frame with the built-in TX accounting.
+
+**Parameters:**
+- `id` - CAN identifier (11-bit standard or 29-bit extended)
+- `data` - Pointer to payload bytes (may be `nullptr` if `len` is `0`)
+- `len` - Number of payload bytes (max 8, per physical CAN frame)
+- `extended` - `true` to send as an extended (29-bit ID) frame, `false` (default) for standard (11-bit ID)
+
+**Returns:** `true` if `endPacket()` reported success, `false` otherwise
+
+**Example:**
+```cpp
+uint8_t payload[2] = { 0x01, 0x02 };
+if (!broker.sendFrame(0x123, payload, sizeof(payload))) {
+  Serial.println("TX failed!");
+}
+```
+
+**See also:** [docs/RAW_FRAME_LOGGING.md](RAW_FRAME_LOGGING.md) for the full raw-frame logging guide.
+
+---
+
+### onRawFrame()
+
+```cpp
+void onRawFrame(RawFrameCallback callback)
+```
+
+Register a callback that observes **every physical CAN frame**, sent or received, including individual fragments of extended/multi-frame messages. Intended for bus sniffing, diagnostics, and forwarding 100% of traffic to an external log (e.g. cloud logging on a gateway/brain firmware). Available on both `CANPubSubBroker` and `CANPubSubClient`.
+
+RX events fire at the very top of `handleMessage()`, before any target-ID filtering or msgType dispatch — a broker sees this for every frame on the bus, including ones not addressed to it. TX events fire from inside `sendFrame()`, once per physical frame actually transmitted (so a fragmented extended message fires once per fragment, not once per logical call).
+
+**Parameters:**
+- `callback` - Function with signature `void callback(bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk)`. Pass `nullptr` to disable (no-op, no allocation).
+
+**Example:**
+```cpp
+broker.onRawFrame([](bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk) {
+  Serial.print(isTx ? "TX " : "RX ");
+  Serial.print(extended ? "EXT " : "STD ");
+  Serial.print("id=0x"); Serial.print(id, HEX);
+  Serial.print(" len="); Serial.print(len);
+  if (isTx) {
+    Serial.print(" ok="); Serial.print(txOk);
+  }
+  Serial.println();
+});
+```
+
+**See also:** [docs/RAW_FRAME_LOGGING.md](RAW_FRAME_LOGGING.md) for behavior details and a cloud-logging example.
+
+---
+
+### getTxFailCount()
+
+```cpp
+uint32_t getTxFailCount() const
+```
+
+Get the running count of `sendFrame()` calls (including internal ones made by `subscribe()`, `publish()`, `sendExtendedMessage()`, etc.) whose `endPacket()` reported failure. Useful as a lightweight bus-health/reliability indicator alongside ping/pong monitoring (see [PING_MONITORING.md](PING_MONITORING.md)).
+
+**Returns:** Total number of failed TX attempts since construction (does not reset automatically)
+
+**Example:**
+```cpp
+if (client.getTxFailCount() > 0) {
+  Serial.print("TX failures so far: ");
+  Serial.println(client.getTxFailCount());
+}
+```
+
+---
+
 ## Callback Types
 
 ### MessageCallback
@@ -828,6 +907,24 @@ Callback for connection events.
 
 **Parameters:**
 - `clientId` - ID of the client
+
+---
+
+### RawFrameCallback
+
+```cpp
+typedef void (*RawFrameCallback)(bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk)
+```
+
+Callback for the raw-frame logging hook (see [onRawFrame()](#onrawframe)). Fired for every physical CAN frame sent or received.
+
+**Parameters:**
+- `isTx` - `true` if this frame was transmitted, `false` if it was received
+- `extended` - `true` if the frame used a 29-bit extended ID, `false` for an 11-bit standard ID
+- `id` - The CAN identifier of the frame
+- `data` - Pointer to the frame's payload bytes (valid only for the duration of the callback)
+- `len` - Number of payload bytes (0-8)
+- `txOk` - Only meaningful when `isTx` is `true` (the real `endPacket()` result); always `true` for RX (not-applicable placeholder)
 
 ---
 

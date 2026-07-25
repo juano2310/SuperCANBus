@@ -189,6 +189,18 @@ int DLC = CAN.packetDlc();
 
 Returns the value of the Data Length Code (DLC) field of the packet.
 
+### Packet Data (non-destructive)
+
+Copy the already-buffered payload of the received packet without consuming it, i.e. `available()`/`read()`/`peek()` are unaffected. Useful for observers (such as a raw-frame logging hook) that need to inspect a packet's bytes without disturbing another handler's `Stream`-based read logic.
+
+```arduino
+int len = CAN.packetData(dst, maxLen);
+```
+
+ * `dst` - buffer to copy the packet payload into
+ * `maxLen` - size of `dst` in bytes
+
+Returns the number of bytes copied (`<= maxLen`).
 
 ### Available
 
