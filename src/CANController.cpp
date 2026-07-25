@@ -132,6 +132,27 @@ int CANControllerClass::packetDlc()
   return _rxDlc;
 }
 
+int CANControllerClass::packetData(uint8_t* dst, int maxLen)
+{
+  if (dst == NULL || maxLen <= 0) {
+    return 0;
+  }
+
+  int len = _rxLength;
+  if (len < 0) {
+    len = 0;
+  }
+  if (len > maxLen) {
+    len = maxLen;
+  }
+
+  if (len > 0) {
+    memcpy(dst, _rxData, len);
+  }
+
+  return len;
+}
+
 size_t CANControllerClass::write(uint8_t byte)
 {
   return write(&byte, sizeof(byte));

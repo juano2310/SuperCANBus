@@ -28,7 +28,8 @@ static bool isValidMessageLength(size_t length, size_t expectedMin, size_t expec
 
 // ===== CANPubSubBase Implementation =====
 
-CANPubSubBase::CANPubSubBase(CANControllerClass& can) : _can(&can), _topicMappingCount(0) {
+CANPubSubBase::CANPubSubBase(CANControllerClass& can)
+  : _can(&can), _topicMappingCount(0), _onRawFrame(nullptr), _txFailCount(0) {
   memset(&_extBuffer, 0, sizeof(_extBuffer));
 }
 
@@ -67,34 +68,65 @@ String CANPubSubBase::getTopicName(uint16_t hash) {
   return String("0x") + String(hash, HEX);
 }
 
+bool CANPubSubBase::sendFrame(uint32_t id, const uint8_t* data, uint8_t len, bool extended) {
+  if (extended) {
+    _can->beginExtendedPacket((long)id);
+  } else {
+    _can->beginPacket((int)id);
+  }
+
+  if (data != nullptr && len > 0) {
+    _can->write(data, len);
+  }
+
+  bool txOk = (_can->endPacket() == 1);
+
+  if (!txOk) {
+    _txFailCount++;
+  }
+
+  emitRawFrame(true, extended, id, data, len, txOk);
+
+  return txOk;
+}
+
+void CANPubSubBase::onRawFrame(RawFrameCallback callback) {
+  _onRawFrame = callback;
+}
+
+uint32_t CANPubSubBase::getTxFailCount() const {
+  return _txFailCount;
+}
+
+void CANPubSubBase::emitRawFrame(bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk) {
+  if (_onRawFrame) {
+    _onRawFrame(isTx, extended, id, data, len, txOk);
+  }
+}
+
 bool CANPubSubBase::sendExtendedMessage(uint8_t msgType, const uint8_t* data, size_t length) {
   if (length <= CAN_FRAME_DATA_SIZE) {
     // Single frame - use standard packet
-    _can->beginPacket(msgType);
-    _can->write(data, length);
-    return _can->endPacket() == 1;
+    return sendFrame(msgType, data, (uint8_t)length, false);
   }
-  
+
   // Multi-frame message using extended CAN IDs
   // Extended ID format: [8-bit msgType][8-bit frameSeq][13-bit reserved/totalFrames]
   uint8_t totalFrames = (length + CAN_FRAME_DATA_SIZE - 1) / CAN_FRAME_DATA_SIZE;
-  
+
   for (uint8_t frame = 0; frame < totalFrames; frame++) {
     uint8_t frameSize = min((size_t)CAN_FRAME_DATA_SIZE, length - (frame * CAN_FRAME_DATA_SIZE));
-    
+
     // Build extended ID: [msgType][frameSeq][totalFrames]
-    long extId = ((long)msgType << 21) | ((long)frame << 13) | totalFrames;
-    
-    _can->beginExtendedPacket(extId);
-    _can->write(data + (frame * CAN_FRAME_DATA_SIZE), frameSize);
-    
-    if (_can->endPacket() != 1) {
+    uint32_t extId = ((uint32_t)msgType << 21) | ((uint32_t)frame << 13) | totalFrames;
+
+    if (!sendFrame(extId, data + (frame * CAN_FRAME_DATA_SIZE), frameSize, true)) {
       return false;
     }
-    
+
     delay(5); // Small delay between frames to prevent bus congestion
   }
-  
+
   return true;
 }
 
@@ -243,6 +275,15 @@ void CANPubSubBroker::loop() {
 }
 
 void CANPubSubBroker::handleMessage(int packetSize) {
+  // Raw-frame logging hook: fires for every received frame, before any
+  // target-ID filtering or msgType dispatch. txOk has no meaning for RX,
+  // so it is always passed as true (not-applicable placeholder).
+  if (_onRawFrame) {
+    uint8_t rawData[CAN_FRAME_DATA_SIZE];
+    int rawLen = _can->packetData(rawData, sizeof(rawData));
+    emitRawFrame(false, _can->packetExtended(), (uint32_t)_can->packetId(), rawData, (uint8_t)rawLen, true);
+  }
+
   // Check for extended frames first
   if (_can->packetExtended()) {
     processExtendedFrame(packetSize);
@@ -372,26 +413,21 @@ void CANPubSubBroker::handleDirectMessage() {
   }
   
   // Send acknowledgment
-  _can->beginPacket(CAN_PS_ACK);
-  _can->write(CAN_PS_BROKER_ID);
-  _can->write(senderId);
-  _can->print("ACK");
-  _can->endPacket();
+  uint8_t ackBuf[5] = { CAN_PS_BROKER_ID, senderId, 'A', 'C', 'K' };
+  sendFrame(CAN_PS_ACK, ackBuf, sizeof(ackBuf));
 }
 
 void CANPubSubBroker::handlePing() {
   if (_can->available() < 1) return;
-  
+
   uint8_t clientId = _can->read();
-  
+
   // Track client activity (marks as online)
   trackClientActivity(clientId);
-  
+
   // Send pong response
-  _can->beginPacket(CAN_PS_PONG);
-  _can->write(CAN_PS_BROKER_ID);
-  _can->write(clientId);
-  _can->endPacket();
+  uint8_t pongBuf[2] = { CAN_PS_BROKER_ID, clientId };
+  sendFrame(CAN_PS_PONG, pongBuf, sizeof(pongBuf));
 }
 
 void CANPubSubBroker::handlePong() {
@@ -412,11 +448,9 @@ void CANPubSubBroker::pingAllClients() {
     if (_clientMappings[i].registered) {
       uint8_t clientId = _clientMappings[i].clientId;
       
-      _can->beginPacket(CAN_PS_PING);
-      _can->write(CAN_PS_BROKER_ID);
-      _can->write(clientId);
-      _can->endPacket();
-      
+      uint8_t pingBuf[2] = { CAN_PS_BROKER_ID, clientId };
+      sendFrame(CAN_PS_PING, pingBuf, sizeof(pingBuf));
+
       // Increment missed pings counter in ping state
       int stateIdx = findPingState(clientId);
       if (stateIdx >= 0) {
@@ -513,11 +547,11 @@ void CANPubSubBroker::handlePeerMessage() {
     
     sendExtendedMessage(CAN_PS_PEER_MSG, buffer, min(2 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_PEER_MSG);
-    _can->write(senderId);
-    _can->write(targetId);
-    _can->print(message);
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = senderId;
+    frameBuf[1] = targetId;
+    memcpy(frameBuf + 2, message.c_str(), message.length());
+    sendFrame(CAN_PS_PEER_MSG, frameBuf, (uint8_t)(2 + message.length()));
   }
 }
 
@@ -624,14 +658,14 @@ void CANPubSubBroker::forwardToSubscribers(uint16_t topicHash, const String& mes
           
           sendExtendedMessage(CAN_PS_TOPIC_DATA, buffer, min(3 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
         } else {
-          _can->beginPacket(CAN_PS_TOPIC_DATA);
-          _can->write(subId);
-          _can->write(topicHash >> 8);
-          _can->write(topicHash & 0xFF);
-          _can->print(message);
-          _can->endPacket();
+          uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+          frameBuf[0] = subId;
+          frameBuf[1] = topicHash >> 8;
+          frameBuf[2] = topicHash & 0xFF;
+          memcpy(frameBuf + 3, message.c_str(), message.length());
+          sendFrame(CAN_PS_TOPIC_DATA, frameBuf, (uint8_t)(3 + message.length()));
         }
-        
+
         delay(10); // Small delay between sends
       }
       return;
@@ -640,10 +674,8 @@ void CANPubSubBroker::forwardToSubscribers(uint16_t topicHash, const String& mes
 }
 
 void CANPubSubBroker::assignClientID() {
-  _can->beginPacket(CAN_PS_ID_RESPONSE);
-  _can->write(_nextTempID);
-  _can->endPacket();
-  
+  sendFrame(CAN_PS_ID_RESPONSE, &_nextTempID, 1);
+
   _nextTempID++;
   if (_nextTempID == 0xFF) {
     _nextTempID = 101; // Wrap around to 101 for temporary IDs
@@ -743,9 +775,9 @@ void CANPubSubBroker::trackClientActivity(uint8_t clientId) {
     }
   }
   
-  if (!found && _clientCount < 256) {
+  if (!found && _clientCount < (MAX_CONNECTED_CLIENTS - 1)) {
     _connectedClients[_clientCount++] = clientId;
-    
+
     // Call connect callback if this is a new connection
     if (_onClientConnect) {
       _onClientConnect(clientId);
@@ -776,12 +808,12 @@ void CANPubSubBroker::sendToClient(uint8_t clientId, uint16_t topicHash, const S
     
     sendExtendedMessage(CAN_PS_TOPIC_DATA, buffer, min(3 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_TOPIC_DATA);
-    _can->write(clientId);
-    _can->write(topicHash >> 8);
-    _can->write(topicHash & 0xFF);
-    _can->print(message);
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = clientId;
+    frameBuf[1] = topicHash >> 8;
+    frameBuf[2] = topicHash & 0xFF;
+    memcpy(frameBuf + 3, message.c_str(), message.length());
+    sendFrame(CAN_PS_TOPIC_DATA, frameBuf, (uint8_t)(3 + message.length()));
   }
 }
 
@@ -800,11 +832,11 @@ void CANPubSubBroker::sendDirectMessage(uint8_t clientId, const String& message)
     
     sendExtendedMessage(CAN_PS_DIRECT_MSG, buffer, min(2 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_DIRECT_MSG);
-    _can->write(CAN_PS_BROKER_ID);
-    _can->write(clientId);
-    _can->print(message);
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = CAN_PS_BROKER_ID;
+    frameBuf[1] = clientId;
+    memcpy(frameBuf + 2, message.c_str(), message.length());
+    sendFrame(CAN_PS_DIRECT_MSG, frameBuf, (uint8_t)(2 + message.length()));
   }
 }
 
@@ -938,14 +970,14 @@ void CANPubSubBroker::handleIdRequestWithSerial() {
     
     sendExtendedMessage(CAN_PS_ID_RESPONSE, buffer, min(3 + serialNumber.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_ID_RESPONSE);
-    _can->write(assignedId);
-    _can->write(hasStoredSubs ? 0x01 : 0x00); // Flag: has stored subscriptions
-    _can->write((uint8_t)serialNumber.length());
-    _can->print(serialNumber);
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = assignedId;
+    frameBuf[1] = hasStoredSubs ? 0x01 : 0x00; // Flag: has stored subscriptions
+    frameBuf[2] = (uint8_t)serialNumber.length();
+    memcpy(frameBuf + 3, serialNumber.c_str(), serialNumber.length());
+    sendFrame(CAN_PS_ID_RESPONSE, frameBuf, (uint8_t)(3 + serialNumber.length()));
   }
-  
+
   // Track connected client (marks as online)
   trackClientActivity(assignedId);
   
@@ -1213,14 +1245,14 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
         
         sendExtendedMessage(CAN_PS_ID_RESPONSE, buffer, min(3 + serialNumber.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
       } else {
-        _can->beginPacket(CAN_PS_ID_RESPONSE);
-        _can->write(assignedId);
-        _can->write(hasStoredSubs ? 0x01 : 0x00);
-        _can->write((uint8_t)serialNumber.length());
-        _can->print(serialNumber);
-        _can->endPacket();
+        uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+        frameBuf[0] = assignedId;
+        frameBuf[1] = hasStoredSubs ? 0x01 : 0x00;
+        frameBuf[2] = (uint8_t)serialNumber.length();
+        memcpy(frameBuf + 3, serialNumber.c_str(), serialNumber.length());
+        sendFrame(CAN_PS_ID_RESPONSE, frameBuf, (uint8_t)(3 + serialNumber.length()));
       }
-      
+
       // Track connected client if not already tracked
       bool found = false;
       for (uint8_t i = 0; i < _clientCount; i++) {
@@ -1229,7 +1261,7 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
           break;
         }
       }
-      if (!found && _clientCount < 256) {
+      if (!found && _clientCount < (MAX_CONNECTED_CLIENTS - 1)) {
         _connectedClients[_clientCount++] = assignedId;
         
         if (_onClientConnect) {
@@ -1318,14 +1350,13 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
       }
       
       // Send acknowledgment
-      _can->beginPacket(CAN_PS_ACK);
-      _can->write(CAN_PS_BROKER_ID);
-      _can->write(senderId);
-      _can->print("ACK");
-      _can->endPacket();
+      {
+        uint8_t ackBuf[5] = { CAN_PS_BROKER_ID, senderId, 'A', 'C', 'K' };
+        sendFrame(CAN_PS_ACK, ackBuf, sizeof(ackBuf));
+      }
       break;
     }
-    
+
     case CAN_PS_PEER_MSG: {
       // Extended peer message from client to client (forwarded by broker)
       // Format (in buffer): [targetId][message...]
@@ -1369,11 +1400,11 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
         
         sendExtendedMessage(CAN_PS_PEER_MSG, buffer, min(2 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
       } else {
-        _can->beginPacket(CAN_PS_PEER_MSG);
-        _can->write(senderId);
-        _can->write(targetId);
-        _can->print(message);
-        _can->endPacket();
+        uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+        frameBuf[0] = senderId;
+        frameBuf[1] = targetId;
+        memcpy(frameBuf + 2, message.c_str(), message.length());
+        sendFrame(CAN_PS_PEER_MSG, frameBuf, (uint8_t)(2 + message.length()));
       }
       break;
     }
@@ -1506,6 +1537,15 @@ void CANPubSubClient::loop() {
 }
 
 void CANPubSubClient::handleMessage(int packetSize) {
+  // Raw-frame logging hook: fires for every received frame, before any
+  // target-ID filtering or msgType dispatch. txOk has no meaning for RX,
+  // so it is always passed as true (not-applicable placeholder).
+  if (_onRawFrame) {
+    uint8_t rawData[CAN_FRAME_DATA_SIZE];
+    int rawLen = _can->packetData(rawData, sizeof(rawData));
+    emitRawFrame(false, _can->packetExtended(), (uint32_t)_can->packetId(), rawData, (uint8_t)rawLen, true);
+  }
+
   // Check for extended frames first
   if (_can->packetExtended()) {
     processExtendedFrame(packetSize);
@@ -1570,10 +1610,8 @@ void CANPubSubClient::handleMessage(int packetSize) {
         uint8_t targetId = _can->read();  // Our ID
         if (targetId == _clientId) {
           // Send pong response
-          _can->beginPacket(CAN_PS_PONG);
-          _can->write(_clientId);
-          _can->write(senderId);
-          _can->endPacket();
+          uint8_t pongBuf[2] = { _clientId, senderId };
+          sendFrame(CAN_PS_PONG, pongBuf, sizeof(pongBuf));
         }
       }
       break;
@@ -1748,28 +1786,32 @@ void CANPubSubClient::handleSubscriptionRestore() {
 }
 
 void CANPubSubClient::requestClientID() {
-  _can->beginPacket(CAN_PS_ID_REQUEST);
-  _can->endPacket();
+  sendFrame(CAN_PS_ID_REQUEST, nullptr, 0);
 }
 
 void CANPubSubClient::requestClientIDWithSerial(const String& serialNumber) {
   #ifdef CAN_PS_USE_CHECKSUM
   // Calculate checksum for the serial number
   uint8_t checksum = calculateCRC8((const uint8_t*)serialNumber.c_str(), serialNumber.length());
-  
+
   // Use extended message for serial numbers > 7 bytes (8 - 1 for checksum)
   if (serialNumber.length() > (CAN_FRAME_DATA_SIZE - 1)) {
     // Prepend a dummy byte (0x00) since processExtendedFrame will extract first byte as "senderId"
     uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
     buffer[0] = 0x00; // Placeholder for "senderId" field
-    memcpy(buffer + 1, serialNumber.c_str(), min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 2)));
-    buffer[1 + serialNumber.length()] = checksum;  // Append checksum
-    sendExtendedMessage(CAN_PS_ID_REQUEST, buffer, min(1 + serialNumber.length() + 1, (size_t)MAX_EXTENDED_MSG_SIZE));
+    // Clamp the copied length to the buffer's remaining space (1 byte for the
+    // placeholder + 1 byte for the checksum appended below), and reuse that
+    // SAME clamped length for the checksum's index so it can never write
+    // past the end of buffer[] even if serialNumber is longer than expected.
+    size_t serialCopyLen = min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 2));
+    memcpy(buffer + 1, serialNumber.c_str(), serialCopyLen);
+    buffer[1 + serialCopyLen] = checksum;  // Append checksum
+    sendExtendedMessage(CAN_PS_ID_REQUEST, buffer, 1 + serialCopyLen + 1);
   } else {
-    _can->beginPacket(CAN_PS_ID_REQUEST);
-    _can->print(serialNumber);
-    _can->write(checksum);  // Append checksum
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    memcpy(frameBuf, serialNumber.c_str(), serialNumber.length());
+    frameBuf[serialNumber.length()] = checksum;  // Append checksum
+    sendFrame(CAN_PS_ID_REQUEST, frameBuf, (uint8_t)(serialNumber.length() + 1));
   }
   #else
   // No checksum - send serial number as-is (backward compatibility)
@@ -1777,12 +1819,11 @@ void CANPubSubClient::requestClientIDWithSerial(const String& serialNumber) {
     // Prepend a dummy byte (0x00) since processExtendedFrame will extract first byte as "senderId"
     uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
     buffer[0] = 0x00; // Placeholder for "senderId" field
-    memcpy(buffer + 1, serialNumber.c_str(), min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 1)));
-    sendExtendedMessage(CAN_PS_ID_REQUEST, buffer, min(1 + serialNumber.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
+    size_t serialCopyLen = min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 1));
+    memcpy(buffer + 1, serialNumber.c_str(), serialCopyLen);
+    sendExtendedMessage(CAN_PS_ID_REQUEST, buffer, 1 + serialCopyLen);
   } else {
-    _can->beginPacket(CAN_PS_ID_REQUEST);
-    _can->print(serialNumber);
-    _can->endPacket();
+    sendFrame(CAN_PS_ID_REQUEST, (const uint8_t*)serialNumber.c_str(), (uint8_t)serialNumber.length());
   }
   #endif
 }
@@ -1795,45 +1836,46 @@ bool CANPubSubClient::subscribe(const String& topic) {
   
   // Calculate total message size: clientId + topicHash + topicLength + topic
   size_t totalSize = 1 + 2 + 1 + topic.length();
-  
+
+  bool txOk;
   if (totalSize > CAN_FRAME_DATA_SIZE) {
     // Use extended message for long topics
     uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
     buffer[0] = _clientId;
     buffer[1] = topicHash >> 8;
     buffer[2] = topicHash & 0xFF;
-    memcpy(buffer + 3, topic.c_str(), topic.length());
-    
-    sendExtendedMessage(CAN_PS_SUBSCRIBE, buffer, 3 + topic.length());
+    // Clamp the copied length to the buffer's remaining space so a topic
+    // name longer than the buffer can hold never overflows the stack array.
+    size_t topicCopyLen = min(topic.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 3));
+    memcpy(buffer + 3, topic.c_str(), topicCopyLen);
+
+    txOk = sendExtendedMessage(CAN_PS_SUBSCRIBE, buffer, 3 + topicCopyLen);
   } else {
-    _can->beginPacket(CAN_PS_SUBSCRIBE);
-    _can->write(_clientId);
-    _can->write(topicHash >> 8);
-    _can->write(topicHash & 0xFF);
-    _can->write((uint8_t)topic.length());  // Send topic name length
-    _can->print(topic);  // Send topic name to broker for mapping
-    _can->endPacket();
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = _clientId;
+    frameBuf[1] = topicHash >> 8;
+    frameBuf[2] = topicHash & 0xFF;
+    frameBuf[3] = (uint8_t)topic.length();  // Send topic name length
+    memcpy(frameBuf + 4, topic.c_str(), topic.length());  // Send topic name to broker for mapping
+    txOk = sendFrame(CAN_PS_SUBSCRIBE, frameBuf, (uint8_t)(4 + topic.length()));
   }
-  
+
   // Store locally
   if (_subscribedTopicCount < MAX_CLIENT_TOPICS) {
     _subscribedTopics[_subscribedTopicCount++] = topicHash;
   }
-  
-  return true;
+
+  return txOk;
 }
 
 bool CANPubSubClient::unsubscribe(const String& topic) {
   if (!_connected) return false;
   
   uint16_t topicHash = hashTopic(topic);
-  
-  _can->beginPacket(CAN_PS_UNSUBSCRIBE);
-  _can->write(_clientId);
-  _can->write(topicHash >> 8);
-  _can->write(topicHash & 0xFF);
-  _can->endPacket();
-  
+
+  uint8_t frameBuf[3] = { _clientId, (uint8_t)(topicHash >> 8), (uint8_t)(topicHash & 0xFF) };
+  bool txOk = sendFrame(CAN_PS_UNSUBSCRIBE, frameBuf, sizeof(frameBuf));
+
   // Remove from local list
   for (uint8_t i = 0; i < _subscribedTopicCount; i++) {
     if (_subscribedTopics[i] == topicHash) {
@@ -1844,8 +1886,8 @@ bool CANPubSubClient::unsubscribe(const String& topic) {
       break;
     }
   }
-  
-  return true;
+
+  return txOk;
 }
 
 bool CANPubSubClient::publish(const String& topic, const String& message) {
@@ -1867,14 +1909,13 @@ bool CANPubSubClient::publish(const String& topic, const String& message) {
     
     return sendExtendedMessage(CAN_PS_PUBLISH, buffer, min(3 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_PUBLISH);
-    _can->write(_clientId);
-    _can->write(topicHash >> 8);
-    _can->write(topicHash & 0xFF);
-    _can->print(message);
-    _can->endPacket();
-    
-    return true;
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = _clientId;
+    frameBuf[1] = topicHash >> 8;
+    frameBuf[2] = topicHash & 0xFF;
+    memcpy(frameBuf + 3, message.c_str(), message.length());
+
+    return sendFrame(CAN_PS_PUBLISH, frameBuf, (uint8_t)(3 + message.length()));
   }
 }
 
@@ -1892,12 +1933,11 @@ bool CANPubSubClient::sendDirectMessage(const String& message) {
     
     return sendExtendedMessage(CAN_PS_DIRECT_MSG, buffer, min(1 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_DIRECT_MSG);
-    _can->write(_clientId);
-    _can->print(message);
-    _can->endPacket();
-    
-    return true;
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = _clientId;
+    memcpy(frameBuf + 1, message.c_str(), message.length());
+
+    return sendFrame(CAN_PS_DIRECT_MSG, frameBuf, (uint8_t)(1 + message.length()));
   }
 }
 
@@ -1921,26 +1961,23 @@ bool CANPubSubClient::sendPeerMessage(uint8_t targetClientId, const String& mess
     
     return sendExtendedMessage(CAN_PS_PEER_MSG, buffer, min(2 + message.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
   } else {
-    _can->beginPacket(CAN_PS_PEER_MSG);
-    _can->write(_clientId);
-    _can->write(targetClientId);
-    _can->print(message);
-    _can->endPacket();
-    
-    return true;
+    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+    frameBuf[0] = _clientId;
+    frameBuf[1] = targetClientId;
+    memcpy(frameBuf + 2, message.c_str(), message.length());
+
+    return sendFrame(CAN_PS_PEER_MSG, frameBuf, (uint8_t)(2 + message.length()));
   }
 }
 
 bool CANPubSubClient::ping() {
   if (!_connected) return false;
-  
-  _can->beginPacket(CAN_PS_PING);
-  _can->write(_clientId);
-  _can->endPacket();
-  
+
+  bool txOk = sendFrame(CAN_PS_PING, &_clientId, 1);
+
   _lastPing = millis();
-  
-  return true;
+
+  return txOk;
 }
 
 void CANPubSubClient::onMessage(MessageCallback callback) {
@@ -2409,13 +2446,13 @@ void CANPubSubBroker::restoreClientSubscriptions(uint8_t clientId) {
       
       sendExtendedMessage(CAN_PS_SUB_RESTORE, buffer, min(4 + topicName.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
     } else {
-      _can->beginPacket(CAN_PS_SUB_RESTORE);
-      _can->write(clientId);
-      _can->write(topicHash >> 8);
-      _can->write(topicHash & 0xFF);
-      _can->write((uint8_t)topicName.length());
-      _can->print(topicName);
-      _can->endPacket();
+      uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
+      frameBuf[0] = clientId;
+      frameBuf[1] = topicHash >> 8;
+      frameBuf[2] = topicHash & 0xFF;
+      frameBuf[3] = (uint8_t)topicName.length();
+      memcpy(frameBuf + 4, topicName.c_str(), topicName.length());
+      sendFrame(CAN_PS_SUB_RESTORE, frameBuf, (uint8_t)(4 + topicName.length()));
     }
     
     delay(15); // Small delay between messages

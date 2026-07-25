@@ -22,6 +22,11 @@ public:
   bool packetRtr();
   int packetDlc();
 
+  // Copies the already-buffered received frame payload into dst without
+  // consuming/advancing the Stream read cursor (available()/read()/peek()
+  // are unaffected). Returns the number of bytes copied (<= maxLen).
+  int packetData(uint8_t* dst, int maxLen);
+
   // from Print
   virtual size_t write(uint8_t byte);
   virtual size_t write(const uint8_t *buffer, size_t size);

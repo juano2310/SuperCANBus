@@ -38,6 +38,7 @@
 #define MAX_MESSAGE_CALLBACKS   5
 #define MAX_CLIENT_MAPPINGS     50  // Maximum number of registered clients
 #define MAX_SERIAL_LENGTH       32  // Maximum length for serial numbers
+#define MAX_CONNECTED_CLIENTS   256 // Size of the connected-clients tracking array (client IDs are uint8_t)
 
 // Extended message support (for messages > 8 bytes)
 #define CAN_FRAME_DATA_SIZE     8   // Standard CAN frame data size
@@ -67,6 +68,11 @@ typedef void (*MessageCallback)(uint16_t topicHash, const String& topic, const S
 typedef void (*DirectMessageCallback)(uint8_t senderId, const String& message);
 typedef void (*ConnectionCallback)(uint8_t clientId);
 typedef bool (*RegistrationValidationCallback)(const String& serialNumber); // Returns false to reject registration
+
+// Raw-frame logging hook: fired for every physical CAN frame sent or received,
+// before any protocol-level filtering/dispatch. txOk is only meaningful when
+// isTx is true (RX calls always pass txOk=true as a not-applicable placeholder).
+typedef void (*RawFrameCallback)(bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk);
 
 // Subscription structure for broker
 struct Subscription {
@@ -152,18 +158,33 @@ public:
   // Topic name management
   void registerTopic(const String& topic);
   String getTopicName(uint16_t hash);
-  
+
+  // Low-level frame send: replicates beginPacket()/write()/endPacket(), but
+  // captures the real TX result, tracks failures, and fires the raw-frame hook.
+  bool sendFrame(uint32_t id, const uint8_t* data, uint8_t len, bool extended = false);
+
+  // Raw-frame logging hook (sees every physical TX and RX frame). Pass nullptr to disable.
+  void onRawFrame(RawFrameCallback callback);
+
+  // Number of sendFrame() calls whose endPacket() reported failure.
+  uint32_t getTxFailCount() const;
+
 protected:
   CANControllerClass* _can;
   TopicMapping _topicMappings[MAX_SUBSCRIPTIONS];
   uint8_t _topicMappingCount;
-  
+
   // Extended message support
   bool sendExtendedMessage(uint8_t msgType, const uint8_t* data, size_t length);
   void processExtendedFrame(int packetSize);
   virtual void onExtendedMessageComplete(uint8_t msgType, uint8_t senderId, const uint8_t* data, size_t length) = 0;
-  
+
+  // Invokes the raw-frame callback if one is registered; cheap no-op otherwise.
+  void emitRawFrame(bool isTx, bool extended, uint32_t id, const uint8_t* data, uint8_t len, bool txOk);
+
   ExtendedMessageBuffer _extBuffer;
+  RawFrameCallback _onRawFrame;
+  uint32_t _txFailCount;
 };
 
 // Pub/Sub Broker class
@@ -280,7 +301,7 @@ private:
   uint8_t _subTableSize;
   uint8_t _nextClientID;
   uint8_t _nextTempID;
-  uint8_t _connectedClients[256]; // Track connected clients
+  uint8_t _connectedClients[MAX_CONNECTED_CLIENTS]; // Track connected clients
   uint8_t _clientCount;
   
   // Ping monitoring
