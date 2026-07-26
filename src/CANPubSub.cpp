@@ -212,6 +212,7 @@ CANPubSubBroker::CANPubSubBroker(CANControllerClass& can)
     _lastPingTime(0),
     _onClientConnect(nullptr),
     _onClientDisconnect(nullptr),
+    _onDuplicateId(nullptr),
     _onPublish(nullptr),
     _onDirectMessage(nullptr),
     _onValidateRegistration(nullptr) {
@@ -441,14 +442,26 @@ void CANPubSubBroker::handlePing() {
 
 void CANPubSubBroker::handlePong() {
   if (_can->available() < 2) return;
-  
+
   uint8_t senderId = _can->read();  // Should be client ID
   uint8_t targetId = _can->read();  // Should be broker ID (0x00)
-  
+
   if (targetId != CAN_PS_BROKER_ID) return;
-  
+
   // Track client activity (marks as online and updates ping state)
   trackClientActivity(senderId);
+
+  // Duplicate-ID detection: each registered ID is pinged exactly once per
+  // cycle (pongCount is reset in pingAllClients), so a second pong before
+  // the next ping means two physical devices are both answering as this
+  // ID. Report it exactly once per cycle.
+  int stateIdx = findPingState(senderId);
+  if (stateIdx >= 0) {
+    _pingStates[stateIdx].pongCount++;
+    if (_pingStates[stateIdx].pongCount == 2 && _onDuplicateId) {
+      _onDuplicateId(senderId);
+    }
+  }
 }
 
 void CANPubSubBroker::pingAllClients() {
@@ -460,10 +473,12 @@ void CANPubSubBroker::pingAllClients() {
       uint8_t pingBuf[2] = { CAN_PS_BROKER_ID, clientId };
       sendFrame(CAN_PS_PING, pingBuf, sizeof(pingBuf));
 
-      // Increment missed pings counter in ping state
+      // Increment missed pings counter and start a fresh pong-counting
+      // cycle in ping state (see ClientPingState::pongCount)
       int stateIdx = findPingState(clientId);
       if (stateIdx >= 0) {
         _pingStates[stateIdx].missedPings++;
+        _pingStates[stateIdx].pongCount = 0;
       }
       
       delay(5); // Small delay between pings
@@ -702,6 +717,10 @@ void CANPubSubBroker::onValidateRegistration(RegistrationValidationCallback call
   _onValidateRegistration = callback;
 }
 
+void CANPubSubBroker::onDuplicateId(ConnectionCallback callback) {
+  _onDuplicateId = callback;
+}
+
 void CANPubSubBroker::setPingInterval(unsigned long intervalMs) {
   _pingInterval = intervalMs;
   savePingConfigToStorage();
@@ -756,11 +775,13 @@ void CANPubSubBroker::initPingState(uint8_t clientId) {
     // Reset existing state
     _pingStates[index].lastPongTime = millis();
     _pingStates[index].missedPings = 0;
+    _pingStates[index].pongCount = 0;
   } else if (_pingStateCount < MAX_CLIENT_MAPPINGS) {
     // Create new state
     _pingStates[_pingStateCount].clientId = clientId;
     _pingStates[_pingStateCount].lastPongTime = millis();
     _pingStates[_pingStateCount].missedPings = 0;
+    _pingStates[_pingStateCount].pongCount = 0;
     _pingStateCount++;
   }
 }
@@ -951,40 +972,42 @@ void CANPubSubBroker::handleIdRequestWithSerial() {
   
   // Find or create client ID for this serial number (will be saved to storage)
   uint8_t assignedId = findOrCreateClientId(serialNumber);
-  
+
   // Check if this is a returning client (has stored subscriptions)
   int subIndex = findStoredSubscription(assignedId);
   bool hasStoredSubs = (subIndex >= 0 && _storedSubscriptions[subIndex].topicCount > 0);
-  
-  // Send response with serial number included so client can verify it's for them
-  // Format: [assignedId][hasStoredSubs][serialNumberLength][serialNumber...]
-  size_t totalSize = 1 + 1 + 1 + serialNumber.length();
-  
-  if (totalSize > CAN_FRAME_DATA_SIZE) {
-    // Use extended message for long serial numbers
-    uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
-    buffer[0] = assignedId;
-    buffer[1] = hasStoredSubs ? 0x01 : 0x00;
-    buffer[2] = (uint8_t)serialNumber.length();
-    memcpy(buffer + 3, serialNumber.c_str(), min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 3)));
-    
-    sendExtendedMessage(CAN_PS_ID_RESPONSE, buffer, min(3 + serialNumber.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
-  } else {
-    uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
-    frameBuf[0] = assignedId;
-    frameBuf[1] = hasStoredSubs ? 0x01 : 0x00; // Flag: has stored subscriptions
-    frameBuf[2] = (uint8_t)serialNumber.length();
-    memcpy(frameBuf + 3, serialNumber.c_str(), serialNumber.length());
-    sendFrame(CAN_PS_ID_RESPONSE, frameBuf, (uint8_t)(3 + serialNumber.length()));
-  }
+
+  sendIdResponse(assignedId, hasStoredSubs, serialNumber);
 
   // Track connected client (marks as online)
   trackClientActivity(assignedId);
-  
+
   // Restore stored subscriptions for this client (if any)
   if (hasStoredSubs) {
     delay(100); // Delay to let client process ID response and prepare to receive subscriptions
     restoreClientSubscriptions(assignedId);
+  }
+}
+
+void CANPubSubBroker::sendIdResponse(uint8_t assignedId, bool hasStoredSubs, const String& serialNumber) {
+  // Format: [assignedId][hasStoredSubs][serialNumberLength][serialNumber...][crc8]
+  // See the declaration in CANPubSub.h for why the CRC byte exists.
+  uint8_t response[3 + MAX_SERIAL_LENGTH + 1];
+  size_t serialLen = min(serialNumber.length(), (size_t)MAX_SERIAL_LENGTH);
+  size_t responseLen = 0;
+
+  response[responseLen++] = assignedId;
+  response[responseLen++] = hasStoredSubs ? 0x01 : 0x00;
+  response[responseLen++] = (uint8_t)serialLen;
+  memcpy(response + responseLen, serialNumber.c_str(), serialLen);
+  responseLen += serialLen;
+  response[responseLen] = calculateCRC8(response, responseLen);
+  responseLen++;
+
+  if (responseLen > CAN_FRAME_DATA_SIZE) {
+    sendExtendedMessage(CAN_PS_ID_RESPONSE, response, responseLen);
+  } else {
+    sendFrame(CAN_PS_ID_RESPONSE, response, (uint8_t)responseLen);
   }
 }
 
@@ -1236,32 +1259,12 @@ void CANPubSubBroker::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
       }
       
       uint8_t assignedId = findOrCreateClientId(serialNumber);
-      
+
       // Check if this is a returning client (has stored subscriptions)
       int subIndex = findStoredSubscription(assignedId);
       bool hasStoredSubs = (subIndex >= 0 && _storedSubscriptions[subIndex].topicCount > 0);
-      
-      // Send response with serial number included so client can verify it's for them
-      // Format: [assignedId][hasStoredSubs][serialNumberLength][serialNumber...]
-      size_t totalSize = 1 + 1 + 1 + serialNumber.length();
-      
-      if (totalSize > CAN_FRAME_DATA_SIZE) {
-        // Use extended message for long serial numbers
-        uint8_t buffer[MAX_EXTENDED_MSG_SIZE];
-        buffer[0] = assignedId;
-        buffer[1] = hasStoredSubs ? 0x01 : 0x00;
-        buffer[2] = (uint8_t)serialNumber.length();
-        memcpy(buffer + 3, serialNumber.c_str(), min(serialNumber.length(), (size_t)(MAX_EXTENDED_MSG_SIZE - 3)));
-        
-        sendExtendedMessage(CAN_PS_ID_RESPONSE, buffer, min(3 + serialNumber.length(), (size_t)MAX_EXTENDED_MSG_SIZE));
-      } else {
-        uint8_t frameBuf[CAN_FRAME_DATA_SIZE];
-        frameBuf[0] = assignedId;
-        frameBuf[1] = hasStoredSubs ? 0x01 : 0x00;
-        frameBuf[2] = (uint8_t)serialNumber.length();
-        memcpy(frameBuf + 3, serialNumber.c_str(), serialNumber.length());
-        sendFrame(CAN_PS_ID_RESPONSE, frameBuf, (uint8_t)(3 + serialNumber.length()));
-      }
+
+      sendIdResponse(assignedId, hasStoredSubs, serialNumber);
 
       // Track connected client if not already tracked
       bool found = false;
@@ -1649,18 +1652,34 @@ void CANPubSubClient::handleIdAssignment() {
   if (_can->available() > 0 && _serialNumber.length() > 0) {
     uint8_t serialLen = _can->read();
     String receivedSerial = "";
-    
+
     for (uint8_t i = 0; i < serialLen && _can->available(); i++) {
       receivedSerial += (char)_can->read();
     }
-    
+
     // Only accept this ID if the serial number matches
     if (receivedSerial != _serialNumber) {
       // This ID response is not for us, ignore it
       return;
     }
+
+    // Newer brokers append a CRC8 over [assignedId][flag][serialLen][serial];
+    // verify it when present (older brokers send no trailing byte).
+    if (_can->available() > 0) {
+      uint8_t receivedCrc = (uint8_t)_can->read();
+      uint8_t check[3 + MAX_SERIAL_LENGTH];
+      size_t checkLen = 0;
+      check[checkLen++] = assignedId;
+      check[checkLen++] = hasStoredSubs ? 0x01 : 0x00;
+      check[checkLen++] = serialLen;
+      memcpy(check + checkLen, receivedSerial.c_str(), receivedSerial.length());
+      checkLen += receivedSerial.length();
+      if (calculateCRC8(check, checkLen) != receivedCrc) {
+        return; // Corrupted response - reject and keep waiting
+      }
+    }
   }
-  
+
   _clientId = assignedId;
   _connected = true;
   
@@ -2053,18 +2072,40 @@ void CANPubSubClient::onExtendedMessageComplete(uint8_t msgType, uint8_t senderI
       uint8_t assignedId = senderId; // The extracted "senderId" is actually the assignedId
       bool hasStoredSubs = (data[0] == 0x01);
       uint8_t serialLen = data[1];
-      
+
       String receivedSerial = "";
       for (uint8_t i = 0; i < serialLen && (2 + i) < length; i++) {
         receivedSerial += (char)data[2 + i];
       }
-      
+
       // Only accept this ID if the serial number matches ours
       if (_serialNumber.length() > 0 && receivedSerial != _serialNumber) {
         // This ID response is not for us, ignore it
         return;
       }
-      
+
+      // Newer brokers append a CRC8 over [assignedId][flag][serialLen][serial];
+      // verify it when present (older brokers send no trailing byte). This is
+      // the check that catches an interleaved reassembly: when two clients
+      // register at once and this response's frames got spliced with the other
+      // response's, the result can pass the serial match above while carrying
+      // the OTHER client's assigned ID - which puts two devices on one ID and
+      // makes them both act on that ID's commands. The CRC covers the assigned
+      // ID and the serial together, so a spliced response cannot pass it.
+      size_t expectedLen = (size_t)2 + serialLen;
+      if (length > expectedLen) {
+        uint8_t receivedCrc = data[expectedLen];
+        uint8_t check[1 + 2 + MAX_SERIAL_LENGTH];
+        size_t checkLen = 0;
+        check[checkLen++] = assignedId;
+        size_t copyLen = min(expectedLen, sizeof(check) - checkLen);
+        memcpy(check + checkLen, data, copyLen);
+        checkLen += copyLen;
+        if (calculateCRC8(check, checkLen) != receivedCrc) {
+          return; // Corrupted or spliced response - reject and keep waiting
+        }
+      }
+
       _clientId = assignedId;
       _connected = true;
       
