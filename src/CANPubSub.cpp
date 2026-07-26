@@ -465,40 +465,31 @@ void CANPubSubBroker::pingAllClients() {
 void CANPubSubBroker::checkClientTimeouts() {
   // Check for clients that haven't responded
   for (uint8_t i = 0; i < _pingStateCount; i++) {
-    uint8_t clientId = _pingStates[i].clientId;
-    
     if (_pingStates[i].missedPings >= _maxMissedPings) {
-      // Check if client is currently online
-      bool wasOnline = false;
-      for (uint8_t j = 0; j < _clientCount; j++) {
-        if (_connectedClients[j] == clientId) {
-          wasOnline = true;
-          break;
-        }
-      }
-      
-      // Only process if client was online (avoid duplicate disconnect callbacks)
-      if (wasOnline) {
-        // Remove from connected clients list (mark offline)
-        for (uint8_t j = 0; j < _clientCount; j++) {
-          if (_connectedClients[j] == clientId) {
-            // Shift remaining clients
-            for (uint8_t k = j; k < _clientCount - 1; k++) {
-              _connectedClients[k] = _connectedClients[k + 1];
-            }
-            _clientCount--;
-            break;
-          }
-        }
-        
-        // Call disconnect callback
-        if (_onClientDisconnect) {
-          _onClientDisconnect(clientId);
-        }
-      }
-      
+      // removeFromConnectedClients() is a no-op (and skips the disconnect
+      // callback) if the client isn't currently in the online list, so this
+      // naturally avoids duplicate disconnect callbacks.
+      removeFromConnectedClients(_pingStates[i].clientId);
+
       // Note: Client remains registered (active=true) in mappings
       // and will be marked online again when it reconnects
+    }
+  }
+}
+
+void CANPubSubBroker::removeFromConnectedClients(uint8_t clientId) {
+  for (uint8_t j = 0; j < _clientCount; j++) {
+    if (_connectedClients[j] == clientId) {
+      // Shift remaining clients
+      for (uint8_t k = j; k < _clientCount - 1; k++) {
+        _connectedClients[k] = _connectedClients[k + 1];
+      }
+      _clientCount--;
+
+      if (_onClientDisconnect) {
+        _onClientDisconnect(clientId);
+      }
+      break;
     }
   }
 }
@@ -1091,6 +1082,12 @@ bool CANPubSubBroker::unregisterClient(uint8_t clientId) {
     // Remove all subscriptions for this client
     removeAllSubscriptions(clientId);
     saveMappingsToStorage(); // Save state change
+
+    // A client whose mapping was just invalidated must not linger in the
+    // online/connected count: pingAllClients() only pings mappings that are
+    // still registered, so a stale entry left here would never time out on
+    // its own and would overcount getClientCount() until reboot.
+    removeFromConnectedClients(clientId);
     return true;
   }
   return false;
@@ -1099,10 +1096,14 @@ bool CANPubSubBroker::unregisterClient(uint8_t clientId) {
 bool CANPubSubBroker::unregisterClientBySerial(const String& serialNumber) {
   int index = findClientMapping(serialNumber);
   if (index >= 0) {
+    uint8_t clientId = _clientMappings[index].clientId;
     _clientMappings[index].registered = false;
     // Remove all subscriptions for this client
-    removeAllSubscriptions(_clientMappings[index].clientId);
+    removeAllSubscriptions(clientId);
     saveMappingsToStorage(); // Save state change
+
+    // See unregisterClient() - keep the online count in sync immediately.
+    removeFromConnectedClients(clientId);
     return true;
   }
   return false;
