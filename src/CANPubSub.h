@@ -120,6 +120,11 @@ struct ClientPingState {
   uint8_t clientId;
   unsigned long lastPongTime;
   uint8_t missedPings;
+  // Pongs received since this client was last pinged. The broker pings each
+  // registered ID exactly once per cycle, so a second pong within one cycle
+  // means two physical devices are both answering as this ID (duplicate-ID
+  // condition) - reported via onDuplicateId().
+  uint8_t pongCount;
 };
 
 // Client subscription storage structure
@@ -218,6 +223,12 @@ public:
   void onPublish(MessageCallback callback);
   void onDirectMessage(DirectMessageCallback callback);
   void onValidateRegistration(RegistrationValidationCallback callback); // Validate serial before registration
+  // Fired when two pongs arrive for a single ping cycle on the same client
+  // ID - i.e. two physical devices are simultaneously answering as that ID.
+  // The application should treat commands to that ID as unsafe until it has
+  // forced the devices to re-identify (e.g. stop the ID, then request
+  // re-registration by serial number).
+  void onDuplicateId(ConnectionCallback callback);
   
   // Connection monitoring
   void setPingInterval(unsigned long intervalMs);
@@ -286,6 +297,14 @@ private:
   
   // Client ID management with serial number
   void handleIdRequestWithSerial();
+  // Builds and sends the ID_RESPONSE for a serial-based registration:
+  // [assignedId][hasStoredSubs][serialLen][serial...][crc8]. The trailing
+  // CRC8 covers all preceding bytes so a client can reject a response whose
+  // multi-frame reassembly spliced together frames from two responses sent
+  // back-to-back (two clients registering at once) - such a splice can look
+  // perfectly valid otherwise and hand a client another client's ID.
+  // Clients that predate the CRC simply ignore the extra byte.
+  void sendIdResponse(uint8_t assignedId, bool hasStoredSubs, const String& serialNumber);
   uint8_t findOrCreateClientId(const String& serialNumber);
   int findClientMapping(const String& serialNumber);
   int findClientMappingById(uint8_t clientId);
@@ -359,6 +378,7 @@ private:
   // Callbacks
   ConnectionCallback _onClientConnect;
   ConnectionCallback _onClientDisconnect;
+  ConnectionCallback _onDuplicateId;
   MessageCallback _onPublish;
   DirectMessageCallback _onDirectMessage;
   RegistrationValidationCallback _onValidateRegistration;
