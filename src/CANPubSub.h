@@ -295,6 +295,10 @@ private:
   int findPingState(uint8_t clientId);
   void initPingState(uint8_t clientId);
   void trackClientActivity(uint8_t clientId);
+  // Removes clientId from the online/connected tracking (if present) and fires
+  // the disconnect callback. Used whenever a mapping is invalidated so a client
+  // can never linger in getClientCount() after its registration is gone.
+  void removeFromConnectedClients(uint8_t clientId);
   
   // Data members
   Subscription _subscriptions[MAX_SUBSCRIPTIONS];
