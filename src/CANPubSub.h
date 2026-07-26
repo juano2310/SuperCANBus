@@ -61,6 +61,16 @@ struct ExtendedMessageBuffer {
   uint16_t totalSize;
   unsigned long lastFrameTime;
   bool active;
+  // Reassembly-session guard: totalFrames and the next expected frame
+  // sequence are captured from frame 0 and re-validated on every subsequent
+  // frame. Extended CAN IDs only encode [msgType][frameSeq][totalFrames] -
+  // they carry no sender/session discriminator - so without this, a second
+  // concurrent multi-frame message sharing the same msgType (e.g. two
+  // clients both mid-transmission after a shared power-on/reconnect event)
+  // can interleave with an in-progress reassembly and silently splice
+  // together corrupted-but-plausible-looking output.
+  uint8_t totalFrames;
+  uint8_t nextFrameSeq;
 };
 
 // Callback types

@@ -152,28 +152,37 @@ void CANPubSubBase::processExtendedFrame(int packetSize) {
   if (frameSeq == 0) {
     memset(&_extBuffer, 0, sizeof(_extBuffer));
     _extBuffer.msgType = msgType;
+    _extBuffer.totalFrames = totalFrames;
+    _extBuffer.nextFrameSeq = 0;
     _extBuffer.totalSize = totalFrames * CAN_FRAME_DATA_SIZE; // Approximate
     _extBuffer.active = true;
-    
+
     // Read sender ID if available (first byte)
     if (_can->available() > 0) {
       _extBuffer.senderId = _can->read();
       packetSize--;
     }
   }
-  
-  // Verify this frame belongs to current message
-  if (!_extBuffer.active || _extBuffer.msgType != msgType) {
-    return; // Frame doesn't match current message
+
+  // Verify this frame belongs to the in-progress reassembly: same message
+  // type, same totalFrames count, and the exact next expected sequence
+  // number. Rejects a stale/duplicate/out-of-order frame as well as a
+  // frame from a different concurrent transmission that happens to share
+  // this msgType - see ExtendedMessageBuffer's comment for why this can't
+  // be distinguished any other way given the wire format.
+  if (!_extBuffer.active || _extBuffer.msgType != msgType ||
+      _extBuffer.totalFrames != totalFrames || frameSeq != _extBuffer.nextFrameSeq) {
+    return; // Frame doesn't belong to current message
   }
-  
+
   // Read frame data
   while (_can->available() && _extBuffer.receivedSize < MAX_EXTENDED_MSG_SIZE) {
     _extBuffer.buffer[_extBuffer.receivedSize++] = _can->read();
   }
-  
+
   _extBuffer.lastFrameTime = millis();
-  
+  _extBuffer.nextFrameSeq++;
+
   // Check if message is complete
   if (frameSeq == totalFrames - 1) {
     // Message complete - notify subclass
